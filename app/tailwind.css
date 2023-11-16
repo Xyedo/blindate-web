@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  html,
+  body {
+    @apply min-h-screen dark:bg-[#00222E] bg-[#F5EEEF];
+  }
+}

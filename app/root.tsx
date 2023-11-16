@@ -1,5 +1,4 @@
-import { cssBundleHref } from "@remix-run/css-bundle";
-import type { LinksFunction } from "@remix-run/node";
+import type { LinksFunction, LoaderFunction } from "@remix-run/node";
 import {
   Links,
   LiveReload,
@@ -9,11 +8,21 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import stylesheet from "~/tailwind.css";
+import { rootAuthLoader } from "@clerk/remix/ssr.server";
+import { ClerkApp, ClerkErrorBoundary } from "@clerk/remix";
+import { ThemeProvider } from "~/context/themeProvider";
+
 export const links: LinksFunction = () => [
-  ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
+  { rel: "stylesheet", href: stylesheet },
 ];
 
-export default function App() {
+//TODO: add global error  boundaries
+export const ErrorBoundary = ClerkErrorBoundary();
+
+export const loader: LoaderFunction = (args) => rootAuthLoader(args);
+
+function App() {
   return (
     <html lang="en">
       <head>
@@ -23,7 +32,9 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Outlet />
+        <ThemeProvider>
+          <Outlet />
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
         <LiveReload />
@@ -31,3 +42,5 @@ export default function App() {
     </html>
   );
 }
+
+export default ClerkApp(App);
