@@ -34,7 +34,7 @@ export const loader: LoaderFunction = async (args) => {
 
   switch (resp.status) {
     case 404:
-      return redirect("/profile")
+      return redirect("/profile/edit")
     default:
       const userDetail = await resp.json()
       return userDetail;
