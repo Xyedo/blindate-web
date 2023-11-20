@@ -23,10 +23,10 @@ export const loader: LoaderFunction = async (args) => {
     return redirect("/sign-in")
   }
 
-  const controller = new AbortController();
+
+
   //TODO: Get All Conversation, UserDetail, Match
   const resp = await fetch(`${userAPI}/${userId}/detail`, {
-    signal: controller.signal,
     headers: {
       "Authorization": `Bearer ${token}`
     }

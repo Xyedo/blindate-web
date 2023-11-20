@@ -9,6 +9,7 @@ export const getBaseURLV1 = () => {
 
 export const userSchema = v.object({
   user_id: v.string(),
+  alias: v.string(),
   geo: v.object({ lat: v.string(), lng: v.string() }),
   bio: v.string(),
   gender: v.string(),
@@ -24,6 +25,7 @@ export const userSchema = v.object({
   hobbies: v.array(v.string()),
   movie_series: v.array(v.string()),
   travels: v.array(v.string()),
-  sports: v.array(v.string())
+  sports: v.array(v.string()),
+  profile_picture_urls: v.array(v.string())
 });
 export type UserSchema = v.Output<typeof userSchema>;
