@@ -1,77 +1,131 @@
-import * as v from "valibot";
+import axios from "axios";
+import zod from "zod";
 import { getBaseURLV1 } from "~/api/api";
 
 export namespace User {
-  const detail = v.object({
-    user_id: v.string(),
-    alias: v.string(),
-    geo: v.object({ lat: v.string(), lng: v.string() }),
-    bio: v.string(),
-    gender: v.string(),
-    height: v.number(),
-    education_level: v.string(),
-    drinking: v.string(),
-    smoking: v.string(),
-    relationship_preferences: v.string(),
-    looking_for: v.string(),
-    zodiac: v.string(),
-    kids: v.number(),
-    work: v.string(),
-    hobbies: v.array(v.string()),
-    movie_series: v.array(v.string()),
-    travels: v.array(v.string()),
-    sports: v.array(v.string()),
-    profile_picture_urls: v.array(v.string()),
+  const detail = zod.object({
+    user_id: zod.string(),
+    alias: zod.string(),
+    geo: zod.object({ lat: zod.number(), lng: zod.number() }),
+    bio: zod.string(),
+    gender: zod.string(),
+    from_location: zod.string().optional(),
+    height: zod.number().optional(),
+    education_level: zod.string().optional(),
+    drinking: zod.string().optional(),
+    smoking: zod.string().optional(),
+    relationship_preferences: zod.string().optional(),
+    looking_for: zod.string(),
+    zodiac: zod.string().optional(),
+    kids: zod.number().optional(),
+    work: zod.string().optional(),
+    hobbies: zod.array(zod.string().optional()),
+    movie_series: zod.array(zod.string().optional()),
+    travels: zod.array(zod.string().optional()),
+    sports: zod.array(zod.string().optional()),
+    profile_picture_urls: zod.array(zod.string()),
   });
-  export type Schema = v.Output<typeof detail>;
-
+  export type Schema = zod.infer<typeof detail>;
+  export type Interest = Pick<
+    Schema,
+    "hobbies" | "movie_series" | "sports" | "travels"
+  >;
   export const API = getBaseURLV1() + "/users";
 
   export async function getDetail(
     token: string,
     userId: string
   ): Promise<Schema | undefined> {
-    const resp = await fetch(`${API}/${userId}/detail`, {
+    const resp = await axios.get(`${API}/${userId}/detail`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      timeout: 500,
+      responseType: "json",
     });
     switch (resp.status) {
       case 404:
         return undefined;
       case 200:
-        const { data: userDetail } = await resp.json();
-        return v.parse(detail, userDetail);
+        const { data: userDetail } = await resp.data();
+        const data = detail.parse(userDetail);
+        data.gender = translateGenderEnumToHuman(data.gender as GenderEnum);
+        return data;
+
       default:
         throw new Response("Internal Server error", { status: 500 });
     }
   }
-  export const createDetailSchema = v.object({
-    alias: v.string(),
-    gender: v.picklist(getEnumGender()),
-    location: v.optional(
-      v.object({
-        lat: v.string([]),
-        lng: v.string([v.toTrimmed(), v.regex()]),
+  export const createDetailSchema = zod.object({
+    alias: zod.string().min(5).max(200),
+    gender: zod.enum(getEnumGender()),
+    location: zod
+      .object({
+        lat: zod.coerce.number().min(-90).max(90),
+        lng: zod.coerce.number().min(-180).max(180),
       })
-    ),
+      .optional(),
+    bio: zod.string().min(2).max(300),
+    from_location: zod.string().min(0).max(100).optional(),
+    height: zod.coerce.number().max(400).optional(),
+    education_level: zod.enum(getEnumEducationLevel()).optional(),
+    drinking: zod.enum(getEnumDrinnkingOrSmokeLevel()).optional(),
+    smoking: zod.enum(getEnumDrinnkingOrSmokeLevel()).optional(),
+    relationship_pref: zod.enum(getEnumRelationshipPrefrence()).optional(),
+    looking_for: zod.enum(getEnumGender()),
+    zodiac: zod.enum(getEnumZodiac()).optional(),
+    kids: zod.coerce.number().max(100).optional(),
+    work: zod.coerce.number().min(0).max(50).optional(),
   });
 
-  export type CreateDetailSchema = v.Output<typeof createDetailSchema>;
+  export type CreateDetailSchema = zod.infer<typeof createDetailSchema>;
 
-  export async function createDetail(token: string);
+  export async function upsertDetail(
+    token: string,
+    userId: string,
+    payload: CreateDetailSchema
+  ): Promise<void> {
+    const userDetail = createDetailSchema.parse(payload);
 
+    const resp = await axios.patch(`${API}/${userId}/detail`, userDetail, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (resp.status == 404) {
+      const resp = await axios.post(`${API}/${userId}/detail`, userDetail, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (resp.status >= 400) {
+        const errBody = await resp.data();
+        throw new Error(errBody);
+      }
+
+      return;
+    }
+
+    if (resp.status >= 400) {
+      const errBody = await resp.data();
+      throw new Error(errBody);
+    }
+  }
+
+  export async function updateInterest() {}
   export type GenderEnum = "FEMALE" | "MALE" | "Other";
   export function getEnumGender() {
     return ["FEMALE", "MALE", "Other"] as const;
   }
 
-  export function translateGenderEnumToHuman(gender: GenderEnum): string {
+  export function translateGenderEnumToHuman(gender: GenderEnum) {
     switch (gender) {
       case "MALE":
         return "Male";
       case "FEMALE":
-        return "female";
+        return "Female";
       default:
         return gender;
     }
@@ -122,7 +176,7 @@ export namespace User {
       "Gemini",
       "Cancer",
       "Leo",
-      "Virgo",
+      "virgo",
       "Libra",
       "Scorpio",
       "Sagittarius",
@@ -131,4 +185,15 @@ export namespace User {
       "Pisces",
     ] as const;
   }
+}
+export namespace UserForm {
+  export const profileEditSchema = User.createDetailSchema
+    .omit({ location: true })
+    .and(
+      zod.object({
+        latitude: zod.coerce.number().min(-90).max(90),
+        longitude: zod.coerce.number().min(-180).max(180),
+      })
+    );
+  export type ProfileEditSchema = zod.infer<typeof profileEditSchema>;
 }

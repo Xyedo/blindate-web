@@ -1,20 +1,77 @@
 import { redirect } from "@remix-run/node";
-import type { ActionFunction, DataFunctionArgs } from "@remix-run/node";
+import type {
+  ActionFunction,
+  DataFunctionArgs,
+  TypedResponse,
+} from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
+import {
+  Button,
+  Input,
+  Label,
+  ListBox,
+  ListBoxItem,
+  Popover,
+  Select,
+  SelectValue,
+  TextArea,
+  TextField,
+} from "react-aria-components";
 
 import { guard } from "~/api/api";
-import { User } from "~/api/user";
+import { User, UserForm } from "~/api/user";
+import { useGeolocation } from "~/hook/useGeolocation";
 
 export const action: ActionFunction = async (args) => {
   const formData = await args.request.formData();
-  const data = Object.fromEntries(formData);
-  
-  console.log(data);
-  return {};
+
+  const data = Object.fromEntries(
+    Array.from(formData).filter(([_, v]) => v !== "")
+  );
+
+  if (typeof data.gender === "string") {
+    data.gender = User.translateToEnum(data.gender);
+  }
+
+  if (typeof data.looking_for === "string") {
+    data.looking_for = User.translateToEnum(data.looking_for);
+  }
+
+  const result = await guard(args);
+  if (!result) {
+    return redirect("/sign-in");
+  }
+
+  const profileEdit = UserForm.profileEditSchema.parse(data);
+
+  return User.upsertDetail(result.token, result.userId, {
+    ...profileEdit,
+    location: { lat: profileEdit.latitude, lng: profileEdit.longitude },
+  });
 };
 
-export const loader = async (args: DataFunctionArgs) => {
-  const gender = User.getEnumGender();
+export const loader = async (
+  args: DataFunctionArgs
+): Promise<
+  | TypedResponse<null>
+  | {
+      userDetail: User.Schema | undefined;
+      enums: {
+        gender: string[];
+        relationshipPrefrence: ReturnType<
+          typeof User.getEnumRelationshipPrefrence
+        >;
+        educationLevel: ReturnType<typeof User.getEnumEducationLevel>;
+        drinkingSmokeLevel: ReturnType<
+          typeof User.getEnumDrinnkingOrSmokeLevel
+        >;
+        zodiac: ReturnType<typeof User.getEnumZodiac>;
+      };
+    }
+> => {
+  const gender = User.getEnumGender().map((v) =>
+    User.translateGenderEnumToHuman(v)
+  );
   const relationshipPrefrence = User.getEnumRelationshipPrefrence();
   const educationLevel = User.getEnumEducationLevel();
   const drinkingSmokeLevel = User.getEnumDrinnkingOrSmokeLevel();
@@ -35,12 +92,10 @@ export const loader = async (args: DataFunctionArgs) => {
 
   const result = await guard(args);
   if (!result) {
-    redirect("/sign-in");
-    return null;
+    return redirect("/sign-in");
   }
 
-  const { userId, token } = result;
-  const userDetail = await User.getDetail(token, userId);
+  const userDetail = await User.getDetail(result.token, result.userId);
 
   return {
     userDetail,
@@ -56,20 +111,23 @@ export const loader = async (args: DataFunctionArgs) => {
 
 export default function EditProfilePage() {
   const result = useLoaderData<typeof loader>();
+  const geog = useGeolocation({ lat: -6.2, lng: 106.816 });
   if (!result) {
     return null;
   }
 
   const { userDetail, enums } = result;
+  const selectedPhoto = userDetail?.profile_picture_urls[0];
+  const anotherPhotos = userDetail?.profile_picture_urls.slice(1);
   return (
-    <div className="m-8">
+    <div className="m-4">
       {/* TODO: handle left and right swipe on photos */}
-      <div>
+      <div className="ml-4 mt-4">
         <p className="mb-4">Avatar</p>
         <div className="avatar">
           <div className="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-            {userDetail && userDetail.profile_picture_urls.length >= 1 ? (
-              <img src={userDetail.profile_picture_urls[0]} alt="profile" />
+            {selectedPhoto ? (
+              <img src={selectedPhoto} alt="profile" />
             ) : (
               // TODO: api to make anonymous unique avatar
               <img
@@ -80,8 +138,8 @@ export default function EditProfilePage() {
           </div>
         </div>
 
-        {userDetail && userDetail.profile_picture_urls.length > 1
-          ? userDetail.profile_picture_urls.map((url) => (
+        {anotherPhotos && anotherPhotos.length >= 1
+          ? anotherPhotos.map((url) => (
               <div className="avatar" key={url}>
                 <div className="w-24 rounded-full">
                   <img src={url} alt="profile" />
@@ -91,130 +149,196 @@ export default function EditProfilePage() {
           : null}
       </div>
 
-      <Form id="profile-edit" method="PUT">
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
+      <Form method="PUT">
+        <TextField className="form-control w-full max-w-xs">
+          <Label className="label">
             <span className="label-text">Alias</span>
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
-            name="alias"
             placeholder="Type here"
             className="input input-bordered w-full max-w-xs"
-            defaultValue={userDetail?.alias}
             required
           />
-        </div>
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
+        </TextField>
+        <Select
+          name="gender"
+          className="form-control w-full max-w-xs justify-center"
+          isRequired
+        >
+          <Label className="label">
             <span className="label-text">Gender</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="gender"
-            required
-          >
-            {enums.gender.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.gender.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+        <TextField className="form-control w-full max-w-xs justify-center">
+          <Label className="label">
             <span className="label-text">Bio</span>
-          </label>
-          <textarea
+          </Label>
+          <TextArea
             name="bio"
             className="textarea textarea-bordered h-24"
             placeholder="Feeling Good today!"
             required
           >
             {userDetail?.bio}
-          </textarea>
-        </div>
-        <label className="label">
-          <span className="label-text">Height in (Cm)</span>
-        </label>
-        <input
-          name="height"
-          type="number"
-          placeholder="180"
-          className="input input-bordered w-full max-w-xs"
-          defaultValue={userDetail?.height}
-          max={400}
-        />
-        <label className="label">
-          <span className="label-text">Education Level</span>
-        </label>
-        <select
-          className="select select-bordered w-full max-w-xs"
+          </TextArea>
+        </TextField>
+        <TextField className="form-control w-full max-w-xs justify-center">
+          <Label className="label">
+            <span className="label-text">Height in (Cm)</span>
+          </Label>
+          <Input
+            name="height"
+            type="number"
+            placeholder="180"
+            className="input input-bordered w-full max-w-xs"
+            defaultValue={userDetail?.height}
+            max={400}
+          />
+        </TextField>
+        <Select
           name="education_level"
+          className="form-control w-full max-w-xs justify-center"
         >
-          {enums.educationLevel.map((value, idx) => (
-            <option key={idx}>{value}</option>
-          ))}
-        </select>
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
+          <Label className="label">
+            <span className="label-text">Education Level</span>
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.educationLevel.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+
+        <Select
+          name="drinking"
+          className="form-control w-full max-w-xs justify-center"
+        >
+          <Label className="label">
             <span className="label-text">Drinking</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="drinking"
-          >
-            {enums.drinkingSmokeLevel.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.drinkingSmokeLevel.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+
+        <Select
+          name="smoking"
+          className="form-control w-full max-w-xs justify-center"
+        >
+          <Label className="label">
             <span className="label-text">Smoking</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="smoking"
-          >
-            {enums.drinkingSmokeLevel.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text">Relationship Preferences</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="relationship_pref"
-          >
-            {enums.relationshipPrefrence.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.drinkingSmokeLevel.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+
+        <Select
+          name="relationship_pref"
+          className="form-control w-full max-w-xs justify-center"
+        >
+          <Label className="label">
+            <span className="label-text">Relationship Preference</span>
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.relationshipPrefrence.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+
+        <Select
+          name="looking_for"
+          className="form-control w-full max-w-xs justify-center"
+          isRequired
+        >
+          <Label className="label">
             <span className="label-text">Looking For</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="looking_for"
-            required
-          >
-            {enums.gender.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.gender.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+
+        <Select
+          name="zodiac"
+          className="form-control w-full max-w-xs justify-center"
+        >
+          <Label className="label">
             <span className="label-text">Zodiac</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="zodiac"
-          >
-            {enums.zodiac.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
+          </Label>
+          <Button>
+            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+          </Button>
+          <Popover>
+            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
+              {enums.zodiac.map((value, idx) => (
+                <ListBoxItem key={idx} id={value}>
+                  {value}
+                </ListBoxItem>
+              ))}
+            </ListBox>
+          </Popover>
+        </Select>
+        <TextField className="form-control w-full max-w-xs justify-center">
+          <Label className="label">
             <span className="label-text">Kids</span>
-          </label>
-          <input
+          </Label>
+          <Input
             name="kids"
             type="number"
             placeholder="1"
@@ -222,10 +346,12 @@ export default function EditProfilePage() {
             defaultValue={userDetail?.kids}
             max={100}
           />
-          <label className="label">
+        </TextField>
+        <TextField className="form-control w-full max-w-xs justify-center">
+          <Label className="label">
             <span className="label-text">Work</span>
-          </label>
-          <input
+          </Label>
+          <Input
             name="work"
             type="text"
             placeholder="Freelance"
@@ -233,14 +359,23 @@ export default function EditProfilePage() {
             defaultValue={userDetail?.work}
             maxLength={100}
           />
-        </div>
-
-        <button
+        </TextField>
+        <Input
+          hidden
+          name="latitude"
+          value={geog?.position?.coords?.latitude}
+        />
+        <Input
+          hidden
+          name="longitude"
+          value={geog?.position?.coords?.longitude}
+        />
+        <Button
           type="submit"
           className="my-4 form-control btn btn-primary dark:text-white "
         >
           Update
-        </button>
+        </Button>
       </Form>
     </div>
   );

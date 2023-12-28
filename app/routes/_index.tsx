@@ -1,12 +1,14 @@
 import { getAuth } from "@clerk/remix/ssr.server";
 import { redirect } from "@remix-run/node";
 import type { LoaderFunction, MetaFunction } from "@remix-run/node";
+import axios from "axios";
 import { getBaseURLV1 } from "~/api/api";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "New Remix App" },
+    { title: "Blindate" },
     { name: "description", content: "Welcome to Remix!" },
+    { }
   ];
 };
 
@@ -26,7 +28,7 @@ export const loader: LoaderFunction = async (args) => {
 
 
   //TODO: Get All Conversation, UserDetail, Match
-  const resp = await fetch(`${userAPI}/${userId}/detail`, {
+  const resp = await axios.get(`${userAPI}/${userId}/detail`, {
     headers: {
       "Authorization": `Bearer ${token}`
     }
@@ -36,7 +38,7 @@ export const loader: LoaderFunction = async (args) => {
     case 404:
       return redirect("/profile/edit")
     default:
-      const userDetail = await resp.json()
+      const userDetail = await resp.data()
       return userDetail;
   }
 };
@@ -44,33 +46,7 @@ export const loader: LoaderFunction = async (args) => {
 
 export default function Index() {
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-      <h1>Welcome to Remix</h1>
-      <ul>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/blog"
-            rel="noreferrer"
-          >
-            15m Quickstart Blog Tutorial
-          </a>
-        </li>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/jokes"
-            rel="noreferrer"
-          >
-            Deep Dive Jokes App Tutorial
-          </a>
-        </li>
-        <li>
-          <a target="_blank" href="https://remix.run/docs" rel="noreferrer">
-            Remix Docs
-          </a>
-        </li>
-      </ul>
-    </div>
+    <>
+    </>
   );
 }

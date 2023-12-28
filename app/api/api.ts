@@ -12,7 +12,7 @@ export const getBaseURLV1 = () => {
 
 
 export async function guard(args:DataFunctionArgs) {
-  const { userId, getToken } = await getAuth(args);
+  const { userId, getToken, user } = await getAuth(args);
   if (!userId) {
     return undefined
   }
@@ -22,6 +22,8 @@ export async function guard(args:DataFunctionArgs) {
     return undefined
   }
 
-  return {userId, token}
+  return {userId, token, user}
 
 }
+
+

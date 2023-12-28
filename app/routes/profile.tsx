@@ -1,212 +1,319 @@
-import type { DataFunctionArgs } from "@remix-run/node";
+import type { DataFunctionArgs, TypedResponse } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import { guard } from "~/api/api";
 import { User } from "~/api/user";
 
+import type { User as ClerkUser } from "@clerk/remix/api.server";
+import { Button, Label, Tag, TagGroup, TagList } from "react-aria-components";
+import { reverseGeocode } from "~/api/maps/api";
+
 export const loader = async (
   args: DataFunctionArgs
-): Promise<User.Schema | null> => {
+): Promise<
+  | {
+      user: ClerkUser | undefined;
+      userDetail: User.Schema & { address?: string };
+    }
+  | TypedResponse<null>
+> => {
   if (process.env?.["APP_ENV"] == "local") {
     return {
-      alias: "admin",
-      bio: "testing 1",
-      drinking: "Ocasionnally",
-      education_level: "B",
-    } as User.Schema;
+      user: {
+        firstName: "Hafid",
+        lastName: "Mahdi",
+        backupCodeEnabled: false,
+        banned: false,
+        birthday: "1345",
+        createdAt: 124124,
+        emailAddresses: [],
+        externalAccounts: [],
+        externalId: null,
+        gender: "male",
+        id: "user_asrf90",
+        hasImage: false,
+        imageUrl: "",
+        lastSignInAt: 124125412,
+        passwordEnabled: false,
+        phoneNumbers: [],
+        primaryEmailAddressId: null,
+        primaryPhoneNumberId: null,
+        primaryWeb3WalletId: null,
+        privateMetadata: {},
+        publicMetadata: {},
+        totpEnabled: false,
+        twoFactorEnabled: false,
+        unsafeMetadata: {},
+        updatedAt: 1235235,
+        username: "adad",
+        web3Wallets: [],
+        profileImageUrl: "",
+      },
+      userDetail: {
+        alias: "admin",
+        bio: `hehehe gatau nich\n\n\nhit me up pls`,
+        gender: "Male",
+        geo: {
+          lat: 10,
+          lng: 80,
+        },
+        looking_for: "Female",
+        user_id: "user_1234",
+        address: await reverseGeocode({
+          lat: -6.2,
+          lng: 106.8166,
+        }),
+        from_location: "Indonesia",
+        drinking: "Ocassionally",
+        smoking: "Never",
+        education_level: "Bachelor Degree",
+        work: "Software Engineer",
+        relationship_preferences: "Casual",
+        height: 175,
+        kids: 0,
+        zodiac: "Virgo",
+        profile_picture_urls: [],
+        hobbies: ["Ngoding", "Kulineran", "Pacaran"],
+        movie_series: ["100 Days", "Spartans"],
+        sports: ["Basket", "Futsal"],
+        travels: ["Gunung", "Bali", "Singapore"],
+      },
+    };
   }
 
   const result = await guard(args);
   if (!result) {
-    redirect("/sign-in");
-    return null;
+    return redirect("/sign-in");
   }
 
-  const { userId, token } = result;
+  const userDetail = await User.getDetail(result.token, result.userId);
 
-  const userDetail = await User.getDetail(token, userId);
   if (!userDetail) {
-    redirect("/profile/edit");
-    return null;
+    return redirect("/profile/edit");
   }
 
-  return userDetail;
+  return {
+    user: result.user,
+    userDetail: {
+      ...userDetail,
+      address: await reverseGeocode({
+        lat: userDetail.geo.lat,
+        lng: userDetail.geo.lng,
+      }),
+    },
+  };
 };
 
 export default function Profile() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const userDetail = useLoaderData<typeof loader>();
+  const result = useLoaderData<typeof loader>();
+  if (!result) {
+    return null;
+  }
+
+  const { user, userDetail } = result;
+
+  const selectedPhoto = userDetail.profile_picture_urls?.[0];
   return (
-<div className="m-8">
-      {/* TODO: handle left and right swipe on photos */}
-      <div>
-        <p className="mb-4">Avatar</p>
-        <div className="avatar">
-          <div className="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-            {userDetail && userDetail.profile_picture_urls.length >= 1 ? (
-              <img src={userDetail.profile_picture_urls[0]} alt="profile" />
-            ) : (
-              // TODO: api to make anonymous unique avatar
-              <img
-                src="https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1677509740.jpg"
-                alt="profile-default"
-              />
-            )}
+    <>
+      <div className="mx-3 my-6">
+        {/* TODO: handle left and right swipe on photos */}
+        <header className="m-4 flex">
+          <div className="avatar justify-center mr-6 flex-col flex-shrink-0 relative">
+            <div className="w-20 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+              {selectedPhoto ? (
+                <img src={selectedPhoto} alt="profile" />
+              ) : (
+                // TODO: api to make anonymous unique avatar
+                <img
+                  src="https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1677509740.jpg"
+                  alt="profile-default"
+                />
+              )}
+            </div>
           </div>
-        </div>
-
-        {userDetail && userDetail.profile_picture_urls.length > 1
-          ? userDetail.profile_picture_urls.map((url) => (
-              <div className="avatar" key={url}>
-                <div className="w-24 rounded-full">
-                  <img src={url} alt="profile" />
-                </div>
+          <div>
+            <h1 className="text-lg text-white">{userDetail?.alias}</h1>
+            <Form action="edit">
+              <Button
+                type="submit"
+                className="my-4 form-control btn btn-sm btn-active btn-primary dark:text-white"
+              >
+                Edit Profile
+              </Button>
+            </Form>
+          </div>
+        </header>
+        <section className="">
+          <div className="pb-1">
+            {user?.firstName && user?.lastName ? (
+              <span className="text-lg text-white mr-2">
+                {user.firstName} {user.lastName}
+              </span>
+            ) : null}
+            <span className="">{userDetail.gender}</span>
+            <p></p>
+          </div>
+          <div className="pt-1">
+            <WorkAndEducationLevel
+              work={userDetail.work}
+              educationLevel={userDetail.education_level}
+            />
+            <p>{userDetail.address}</p>
+            <p className="text-gray-50">{userDetail.bio}</p>
+          </div>
+          <div className="divider">Profile Info</div>
+          <div className="m-2 flex flex-row gap-3 flex-wrap justify-between">
+            {userDetail.from_location ? (
+              <div>
+                <Label className="pr-2">From</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.from_location}
+                </span>
               </div>
-            ))
-          : null}
-      </div>
-        <div className="form-control w-full max-w-xs justify-center">
-          <p className="label">
-            Alias: {userDetail?.alias}
-          </p>
-        </div>
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
-            <span className="label-text">Gender</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="gender"
-            required
-          >
-            {enums.gender.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
-            <span className="label-text">Bio</span>
-          </label>
-          <textarea
-            name="bio"
-            className="textarea textarea-bordered h-24"
-            placeholder="Feeling Good today!"
-            required
-          >
-            {userDetail?.bio}
-          </textarea>
-        </div>
-        <label className="label">
-          <span className="label-text">Height in (Cm)</span>
-        </label>
-        <input
-          name="height"
-          type="number"
-          placeholder="180"
-          className="input input-bordered w-full max-w-xs"
-          defaultValue={userDetail?.height}
-          max={400}
-        />
-        <label className="label">
-          <span className="label-text">Education Level</span>
-        </label>
-        <select
-          className="select select-bordered w-full max-w-xs"
-          name="education_level"
-        >
-          {enums.educationLevel.map((value, idx) => (
-            <option key={idx}>{value}</option>
-          ))}
-        </select>
-        <div className="form-control w-full max-w-xs justify-center">
-          <label className="label">
-            <span className="label-text">Drinking</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="drinking"
-          >
-            {enums.drinkingSmokeLevel.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text">Smoking</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="smoking"
-          >
-            {enums.drinkingSmokeLevel.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text">Relationship Preferences</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="relationship_pref"
-          >
-            {enums.relationshipPrefrence.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text">Looking For</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="looking_for"
-            required
-          >
-            {enums.gender.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text">Zodiac</span>
-          </label>
-          <select
-            className="select select-bordered w-full max-w-xs"
-            name="zodiac"
-          >
-            {enums.zodiac.map((value, idx) => (
-              <option key={idx}>{value}</option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text">Kids</span>
-          </label>
-          <input
-            name="kids"
-            type="number"
-            placeholder="1"
-            className="input input-bordered w-full max-w-xs"
-            defaultValue={userDetail?.kids}
-            max={100}
-          />
-          <label className="label">
-            <span className="label-text">Work</span>
-          </label>
-          <input
-            name="work"
-            type="text"
-            placeholder="Freelance"
-            className="input input-bordered w-full max-w-xs"
-            defaultValue={userDetail?.work}
-            maxLength={100}
-          />
-        </div>
+            ) : null}
+            <div>
+              <Label className="pr-2">Dating</Label>
+              <span className="badge badge-primary text-white">
+                {userDetail.looking_for}
+              </span>
+            </div>
+            {userDetail.relationship_preferences ? (
+              <div>
+                <Label className="pr-2">Pereferences</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.relationship_preferences}
+                </span>
+              </div>
+            ) : null}
+            {userDetail.drinking ? (
+              <div>
+                <Label className="pr-2">Drinking</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.drinking}
+                </span>
+              </div>
+            ) : null}
+            {userDetail.smoking ? (
+              <div>
+                <Label className="pr-2">Smoking</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.smoking}
+                </span>
+              </div>
+            ) : null}
+            {userDetail.zodiac ? (
+              <div>
+                <Label className="pr-2">Zodiac</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.zodiac}
+                </span>
+              </div>
+            ) : null}
+            {userDetail.height ? (
+              <div>
+                <Label className="pr-2">Height</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.height} cm
+                </span>
+              </div>
+            ) : null}
 
-        <button
-          type="submit"
-          className="my-4 form-control btn btn-primary dark:text-white "
-        >
-          Update
-        </button>
-      </Form>
-    </div>
+            {userDetail.kids ? (
+              <div>
+                <Label className="pr-2">Kids</Label>
+                <span className="badge badge-primary text-white">
+                  {userDetail.kids}
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <div className="divider">Interest</div>
+          <div className="flex flex-col gap-2 m-2">
+            {userDetail.hobbies.length > 1 ? (
+              <TagGroup selectionMode="none">
+                <Label className="label">Hobbies</Label>
+                <TagList className="flex gap-2">
+                  {userDetail.hobbies.map((v, i) => (
+                    <Tag key={i} className="badge badge-primary text-white">
+                      {v}
+                    </Tag>
+                  ))}
+                </TagList>
+              </TagGroup>
+            ) : null}
+            {userDetail.movie_series.length > 1 ? (
+              <TagGroup selectionMode="none">
+                <Label className="label">Movies & Series</Label>
+                <TagList className="flex gap-2">
+                  {userDetail.movie_series.map((v, i) => (
+                    <Tag key={i} className="badge badge-primary text-white">
+                      {v}
+                    </Tag>
+                  ))}
+                </TagList>
+              </TagGroup>
+            ) : null}
+            {userDetail.sports.length > 1 ? (
+              <TagGroup selectionMode="none">
+                <Label className="label">Sports</Label>
+                <TagList className="flex gap-2">
+                  {userDetail.sports.map((v, i) => (
+                    <Tag key={i} className="badge badge-primary text-white">
+                      {v}
+                    </Tag>
+                  ))}
+                </TagList>
+              </TagGroup>
+            ) : null}
+            {userDetail.travels.length > 1 ? (
+              <TagGroup selectionMode="none">
+                <Label className="label">Travels</Label>
+                <TagList className="flex gap-2">
+                  {userDetail.travels.map((v, i) => (
+                    <Tag key={i} className="badge badge-primary text-white">
+                      {v}
+                    </Tag>
+                  ))}
+                </TagList>
+              </TagGroup>
+            ) : null}
+            <Form action="/interest/edit" >
+              <Button
+                type="submit"
+                className="my-4 form-control btn btn-sm btn-active btn-primary dark:text-white"
+              >
+                Edit Interest
+              </Button>
+            </Form>
+          </div>
+        </section>
+      </div>
+    </>
   );
 }
+
+const WorkAndEducationLevel = ({
+  work,
+  educationLevel,
+}: {
+  work?: string;
+  educationLevel?: string;
+}) => {
+  if (work && educationLevel) {
+    return (
+      <span>
+        {work}, {educationLevel}
+      </span>
+    );
+  }
+
+  if (work) {
+    return <span>{work}</span>;
+  }
+
+  if (educationLevel) {
+    return <span>{educationLevel}</span>;
+  }
+
+  return null;
+};

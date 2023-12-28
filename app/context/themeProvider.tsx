@@ -1,4 +1,4 @@
-import type { Dispatch, FC} from "react";
+import type { Dispatch, FC } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "light" | "dark" | undefined;
@@ -13,7 +13,6 @@ const MEDIA = "(prefers-color-scheme: dark)";
 
 const ThemeContext = createContext<Ctx | null>(null);
 export function useThemeContext() {
-
   const ctx = useContext(ThemeContext);
   if (!ctx) {
     console.error("Should use this inside a ThemeProvider Component");
@@ -21,10 +20,12 @@ export function useThemeContext() {
   }
   return ctx;
 }
-export const ThemeProvider: FC<Props> = ({storageKey = "theme", children}: Props) => {
-  const [theme, setTheme] = useState<Theme>(
-    getInitialTheme(storageKey)
-  );
+
+export const ThemeProvider: FC<Props> = ({
+  storageKey = "theme",
+  children,
+}: Props) => {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme(storageKey));
 
   useEffect(() => {
     const val = localStorage.getItem(storageKey) as Theme | null;
@@ -32,7 +33,6 @@ export const ThemeProvider: FC<Props> = ({storageKey = "theme", children}: Props
       setTheme(val);
     }
   }, [storageKey]);
-
 
   //listen to system pref
   useEffect(() => {
@@ -51,23 +51,22 @@ export const ThemeProvider: FC<Props> = ({storageKey = "theme", children}: Props
       media.removeListener(getSystemTheme);
       media.removeEventListener("change", getSystemTheme);
     };
-
   }, [storageKey]);
 
   //listen to theme change
-  useEffect(()  => {
-      const root = window.document.documentElement;
-      if (theme === "dark") {
-        root.classList.remove("light");
-        root.classList.add("dark");
-      } else if (theme === "light") {
-        root.classList.remove("dark");
-        root.classList.add("light");
-      }
-      if (typeof theme !== "undefined") {
-        window.localStorage.setItem(storageKey, theme);
-      }
-    }, [storageKey, theme])
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === "dark") {
+      root.classList.remove("light");
+      root.classList.add("dark");
+    } else if (theme === "light") {
+      root.classList.remove("dark");
+      root.classList.add("light");
+    }
+    if (typeof theme !== "undefined") {
+      window.localStorage.setItem(storageKey, theme);
+    }
+  }, [storageKey, theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
