@@ -23,18 +23,22 @@ import { User, UserForm } from "~/api/user";
 import { useGeolocation } from "~/hook/useGeolocation";
 
 export const action: ActionFunction = async (args) => {
-  const formData = await args.request.formData();
-
-  const data = Object.fromEntries(
-    Array.from(formData).filter(([_, v]) => v !== "")
+  const formData = Object.fromEntries(
+    Array.from(await args.request.formData()).filter(([_, v]) => v !== "")
   );
 
-  if (typeof data.gender === "string") {
-    data.gender = User.translateToEnum(data.gender);
+  if (typeof formData.gender === "string") {
+    formData.gender = User.translateToEnum(formData.gender);
   }
 
-  if (typeof data.looking_for === "string") {
-    data.looking_for = User.translateToEnum(data.looking_for);
+  if (typeof formData.looking_for === "string") {
+    formData.looking_for = User.translateToEnum(formData.looking_for);
+  }
+
+
+  const profileEdit = UserForm.profileEditSchema.safeParse(formData);
+  if (!profileEdit.success) {
+    return profileEdit.error.flatten().fieldErrors;
   }
 
   const result = await guard(args);
@@ -42,11 +46,12 @@ export const action: ActionFunction = async (args) => {
     return redirect("/sign-in");
   }
 
-  const profileEdit = UserForm.profileEditSchema.parse(data);
-
   return User.upsertDetail(result.token, result.userId, {
-    ...profileEdit,
-    location: { lat: profileEdit.latitude, lng: profileEdit.longitude },
+    ...profileEdit.data,
+    location: {
+      lat: profileEdit.data.latitude,
+      lng: profileEdit.data.longitude,
+    },
   });
 };
 

@@ -73,10 +73,24 @@ export const loader = async (
         kids: 0,
         zodiac: "Virgo",
         profile_picture_urls: [],
-        hobbies: ["Ngoding", "Kulineran", "Pacaran"],
-        movie_series: ["100 Days", "Spartans"],
-        sports: ["Basket", "Futsal"],
-        travels: ["Gunung", "Bali", "Singapore"],
+        hobbies: [
+          { id: "hobbies_1", name: "Ngoding" },
+          { id: "hobbies_2", name: "Kulineran" },
+          { id: "hobbies_3", name: "Pacaran" },
+        ],
+        movie_series: [
+          { id: "movie_series_1", name: "100 Days" },
+          { id: "movie_series_2", name: "Spartans" },
+        ],
+        sports: [
+          { id: "sport_1", name: "Basket" },
+          { id: "sport_2", name: "Futsal" },
+        ],
+        travels: [
+          { id: "travel_1", name: "Gunung" },
+          { id: "travel_2", name: "Bali" },
+          { id: "travel_3", name: "Singapore" },
+        ],
       },
     };
   }
@@ -233,9 +247,9 @@ export default function Profile() {
               <TagGroup selectionMode="none">
                 <Label className="label">Hobbies</Label>
                 <TagList className="flex gap-2">
-                  {userDetail.hobbies.map((v, i) => (
-                    <Tag key={i} className="badge badge-primary text-white">
-                      {v}
+                  {userDetail.hobbies.map((v) => (
+                    <Tag key={v.id} className="badge badge-primary text-white">
+                      {v.name}
                     </Tag>
                   ))}
                 </TagList>
@@ -245,9 +259,9 @@ export default function Profile() {
               <TagGroup selectionMode="none">
                 <Label className="label">Movies & Series</Label>
                 <TagList className="flex gap-2">
-                  {userDetail.movie_series.map((v, i) => (
-                    <Tag key={i} className="badge badge-primary text-white">
-                      {v}
+                  {userDetail.movie_series.map((v) => (
+                    <Tag key={v.id} className="badge badge-primary text-white">
+                      {v.name}
                     </Tag>
                   ))}
                 </TagList>
@@ -257,9 +271,9 @@ export default function Profile() {
               <TagGroup selectionMode="none">
                 <Label className="label">Sports</Label>
                 <TagList className="flex gap-2">
-                  {userDetail.sports.map((v, i) => (
-                    <Tag key={i} className="badge badge-primary text-white">
-                      {v}
+                  {userDetail.sports.map((v) => (
+                    <Tag key={v.id} className="badge badge-primary text-white">
+                      {v.name}
                     </Tag>
                   ))}
                 </TagList>
@@ -269,15 +283,15 @@ export default function Profile() {
               <TagGroup selectionMode="none">
                 <Label className="label">Travels</Label>
                 <TagList className="flex gap-2">
-                  {userDetail.travels.map((v, i) => (
-                    <Tag key={i} className="badge badge-primary text-white">
-                      {v}
+                  {userDetail.travels.map((v) => (
+                    <Tag key={v.id} className="badge badge-primary text-white">
+                      {v.name}
                     </Tag>
                   ))}
                 </TagList>
               </TagGroup>
             ) : null}
-            <Form action="/interest/edit" >
+            <Form action="/interest/edit">
               <Button
                 type="submit"
                 className="my-4 form-control btn btn-sm btn-active btn-primary dark:text-white"
