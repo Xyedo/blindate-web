@@ -403,5 +403,5 @@ export namespace UserForm {
       );
     });
 
-  export type interestEditSchema = z.infer<typeof interestEditSchema>;
+  export type InterestEditSchema = z.infer<typeof interestEditSchema>;
 }
