@@ -13,8 +13,12 @@ export const meta: MetaFunction = () => {
 };
 
 
+
 const userAPI = getBaseURLV1() + "/users";
 export const loader: LoaderFunction = async (args) => {
+  if (process.env?.["APP_ENV"] == "local") {
+    return {}
+  }
   const { userId, getToken } = await getAuth(args);
   if (!userId) {
     return redirect("/sign-in");
@@ -47,6 +51,7 @@ export const loader: LoaderFunction = async (args) => {
 export default function Index() {
   return (
     <>
+     <h1>HELLO TEST</h1> 
     </>
   );
 }
