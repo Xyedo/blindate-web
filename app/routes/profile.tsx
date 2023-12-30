@@ -291,7 +291,7 @@ export default function Profile() {
                 </TagList>
               </TagGroup>
             ) : null}
-            <Form action="/interest/edit">
+            <Form action="interest/edit">
               <Button
                 type="submit"
                 className="my-4 form-control btn btn-sm btn-active btn-primary dark:text-white"

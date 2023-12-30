@@ -1,19 +1,29 @@
-import { redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import type {
-  ActionFunction,
+  ActionFunctionArgs,
   DataFunctionArgs,
   TypedResponse,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+} from "@remix-run/react";
+import type { SelectProps, TextFieldProps } from "react-aria-components";
 import {
   Button,
+  FieldError,
+  FormValidationContext,
   Input,
   Label,
   ListBox,
   ListBoxItem,
+  NumberField,
   Popover,
   Select,
   SelectValue,
+  Text,
   TextArea,
   TextField,
 } from "react-aria-components";
@@ -22,11 +32,15 @@ import { guard } from "~/api/api";
 import { User, UserForm } from "~/api/user";
 import { useGeolocation } from "~/hook/useGeolocation";
 
-export const action: ActionFunction = async (args) => {
+export const action = async (
+  args: ActionFunctionArgs
+): Promise<UserForm.ProfileEditSchemaError | TypedResponse<undefined>> => {
   const formData = Object.fromEntries(
     Array.from(await args.request.formData()).filter(([_, v]) => v !== "")
   );
-
+  const sleep = (delay: number) =>
+    new Promise((resolve) => setTimeout(resolve, delay));
+  await sleep(5000);
   if (typeof formData.gender === "string") {
     formData.gender = User.translateToEnum(formData.gender);
   }
@@ -35,10 +49,9 @@ export const action: ActionFunction = async (args) => {
     formData.looking_for = User.translateToEnum(formData.looking_for);
   }
 
-
   const profileEdit = UserForm.profileEditSchema.safeParse(formData);
   if (!profileEdit.success) {
-    return profileEdit.error.flatten().fieldErrors;
+    return profileEdit.error.flatten();
   }
 
   const result = await guard(args);
@@ -46,13 +59,15 @@ export const action: ActionFunction = async (args) => {
     return redirect("/sign-in");
   }
 
-  return User.upsertDetail(result.token, result.userId, {
+  await User.upsertDetail(result.token, result.userId, {
     ...profileEdit.data,
     location: {
       lat: profileEdit.data.latitude,
       lng: profileEdit.data.longitude,
     },
   });
+
+  return json(undefined, 200);
 };
 
 export const loader = async (
@@ -117,6 +132,10 @@ export const loader = async (
 export default function EditProfilePage() {
   const result = useLoaderData<typeof loader>();
   const geog = useGeolocation({ lat: -6.2, lng: 106.816 });
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.formAction === "/profile/edit";
+
   if (!result) {
     return null;
   }
@@ -154,234 +173,185 @@ export default function EditProfilePage() {
           : null}
       </div>
 
-      <Form method="PUT">
-        <TextField className="form-control w-full max-w-xs">
-          <Label className="label">
-            <span className="label-text">Alias</span>
-          </Label>
-          <Input
+      <Form method="PUT" className="space-y-2">
+        <FormValidationContext.Provider value={actionData?.fieldErrors ?? {}}>
+          <EditProfileTextField
             type="text"
-            placeholder="Type here"
-            className="input input-bordered w-full max-w-xs"
-            required
+            name="alias"
+            isRequired
+            minLength={5}
+            label="Alias"
           />
-        </TextField>
-        <Select
-          name="gender"
-          className="form-control w-full max-w-xs justify-center"
-          isRequired
-        >
-          <Label className="label">
-            <span className="label-text">Gender</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.gender.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
-        <TextField className="form-control w-full max-w-xs justify-center">
-          <Label className="label">
-            <span className="label-text">Bio</span>
-          </Label>
-          <TextArea
-            name="bio"
-            className="textarea textarea-bordered h-24"
-            placeholder="Feeling Good today!"
-            required
+          <EditProfileSelect
+            name="gender"
+            isRequired
+            label="Gender"
+            items={enums.gender}
+          />
+          <TextField
+            className="form-control w-full max-w-xs justify-center"
+            aria-label="Bio"
+            isRequired
           >
-            {userDetail?.bio}
-          </TextArea>
-        </TextField>
-        <TextField className="form-control w-full max-w-xs justify-center">
-          <Label className="label">
-            <span className="label-text">Height in (Cm)</span>
-          </Label>
-          <Input
+            <Label className="label label-text">Bio</Label>
+            <TextArea
+              className="textarea textarea-bordered h-24"
+              placeholder="Feeling Good today!"
+            />
+            <EditProfileErrorField />
+          </TextField>
+          <NumberField
+            className="form-control w-full max-w-xs justify-center"
             name="height"
-            type="number"
-            placeholder="180"
-            className="input input-bordered w-full max-w-xs"
+            aria-label="Height in (Cm)"
             defaultValue={userDetail?.height}
-            max={400}
+            maxValue={400}
+          >
+            <Label className="label label-text">Height in (Cm)</Label>
+            <Input
+              placeholder="180"
+              className="input input-bordered w-full max-w-xs"
+            />
+            <EditProfileErrorField />
+          </NumberField>
+          <EditProfileSelect
+            name="education_level"
+            label="Education Level"
+            items={enums.educationLevel}
           />
-        </TextField>
-        <Select
-          name="education_level"
-          className="form-control w-full max-w-xs justify-center"
-        >
-          <Label className="label">
-            <span className="label-text">Education Level</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.educationLevel.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
+          <EditProfileSelect
+            name="drinking"
+            label="Drinking"
+            items={enums.drinkingSmokeLevel}
+          />
+          <EditProfileSelect
+            name="smoking"
+            label="Smoking"
+            items={enums.drinkingSmokeLevel}
+          />
+          <EditProfileSelect
+            name="relationship_pref"
+            label="Relationship Preference"
+            items={enums.relationshipPrefrence}
+          />
+          <EditProfileSelect
+            name="looking_for"
+            isRequired
+            label="Looking For"
+            items={enums.gender}
+          />
+          <EditProfileSelect
+            name="zodiac"
+            label="Zodiac"
+            items={enums.zodiac}
+          />
 
-        <Select
-          name="drinking"
-          className="form-control w-full max-w-xs justify-center"
-        >
-          <Label className="label">
-            <span className="label-text">Drinking</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.drinkingSmokeLevel.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
-
-        <Select
-          name="smoking"
-          className="form-control w-full max-w-xs justify-center"
-        >
-          <Label className="label">
-            <span className="label-text">Smoking</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.drinkingSmokeLevel.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
-
-        <Select
-          name="relationship_pref"
-          className="form-control w-full max-w-xs justify-center"
-        >
-          <Label className="label">
-            <span className="label-text">Relationship Preference</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.relationshipPrefrence.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
-
-        <Select
-          name="looking_for"
-          className="form-control w-full max-w-xs justify-center"
-          isRequired
-        >
-          <Label className="label">
-            <span className="label-text">Looking For</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.gender.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
-
-        <Select
-          name="zodiac"
-          className="form-control w-full max-w-xs justify-center"
-        >
-          <Label className="label">
-            <span className="label-text">Zodiac</span>
-          </Label>
-          <Button>
-            <SelectValue className="select select-bordered w-full max-w-xs items-center" />
-          </Button>
-          <Popover>
-            <ListBox className="p-2 shadow menu z-[1] bg-base-100 rounded-box w-52">
-              {enums.zodiac.map((value, idx) => (
-                <ListBoxItem key={idx} id={value}>
-                  {value}
-                </ListBoxItem>
-              ))}
-            </ListBox>
-          </Popover>
-        </Select>
-        <TextField className="form-control w-full max-w-xs justify-center">
-          <Label className="label">
-            <span className="label-text">Kids</span>
-          </Label>
-          <Input
+          <NumberField
+            className="form-control w-full max-w-xs justify-center"
             name="kids"
-            type="number"
-            placeholder="1"
-            className="input input-bordered w-full max-w-xs"
             defaultValue={userDetail?.kids}
-            max={100}
-          />
-        </TextField>
-        <TextField className="form-control w-full max-w-xs justify-center">
-          <Label className="label">
-            <span className="label-text">Work</span>
-          </Label>
-          <Input
+            maxValue={100}
+            aria-label="Kids"
+          >
+            <Label className="label label-text">Kids</Label>
+            <Input className="input input-bordered w-full max-w-xs" />
+            <EditProfileErrorField />
+          </NumberField>
+          <EditProfileTextField
             name="work"
             type="text"
-            placeholder="Freelance"
-            className="input input-bordered w-full max-w-xs"
             defaultValue={userDetail?.work}
             maxLength={100}
+            label="Work"
           />
-        </TextField>
-        <Input
-          hidden
-          name="latitude"
-          value={geog?.position?.coords?.latitude}
-        />
-        <Input
-          hidden
-          name="longitude"
-          value={geog?.position?.coords?.longitude}
-        />
-        <Button
-          type="submit"
-          className="my-4 form-control btn btn-primary dark:text-white "
-        >
-          Update
-        </Button>
+          <Input
+            hidden
+            aria-hidden
+            type="hidden"
+            name="latitude"
+            defaultValue={geog?.position?.coords?.latitude}
+          />
+          <Input
+            hidden
+            type="hidden"
+            aria-hidden
+            name="longitude"
+            defaultValue={geog?.position?.coords?.longitude}
+          />
+          <Button
+            type="submit"
+            isDisabled={isSubmitting}
+            className="my-4 btn btn-primary dark:text-white "
+          >
+            {isSubmitting ? (
+              <span className="loading loading-spinner"></span>
+            ) : null}
+            Update
+          </Button>
+        </FormValidationContext.Provider>
       </Form>
     </div>
+  );
+}
+type EditProfileSelectProps = {
+  label: string;
+  items: string[];
+} & SelectProps<any>;
+
+function EditProfileSelect({ items, label, ...props }: EditProfileSelectProps) {
+  return (
+    <Select
+      className="form-control w-full max-w-xs justify-center"
+      {...props}
+      aria-label={label}
+    >
+      <Label className="label label-text">{label}</Label>
+      <Button>
+        <SelectValue className="select select-bordered w-full max-w-xs items-center" />
+      </Button>
+      <Popover className="">
+        <ListBox className="p-2 shadow menu z-[1] bg-base-200 space-y-2 divide-y-2 divide-gray-500 rounded-box w-52">
+          {items.map((value, idx) => (
+            <ListBoxItem key={idx} id={value}>
+              {value}
+            </ListBoxItem>
+          ))}
+        </ListBox>
+      </Popover>
+      <EditProfileErrorField />
+    </Select>
+  );
+}
+
+type EditProfileTextFieldProps = {
+  label: string;
+} & TextFieldProps;
+function EditProfileTextField({ label, ...props }: EditProfileTextFieldProps) {
+  return (
+    <TextField
+      className="form-control w-full max-w-xs"
+      {...props}
+      aria-label={label}
+    >
+      <Label className="label label-text">{label}</Label>
+      <Input className="input input-bordered w-full max-w-xs" />
+      <EditProfileErrorField />
+    </TextField>
+  );
+}
+
+function EditProfileErrorField() {
+  return (
+    <FieldError>
+      {(v) =>
+        v.isInvalid ? (
+          <Label className="label">
+            <Text className="label-text-alt text-error" slot="errorMessage">
+              {v.validationErrors.join(" ")}
+            </Text>
+          </Label>
+        ) : null
+      }
+    </FieldError>
   );
 }

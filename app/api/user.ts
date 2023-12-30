@@ -290,7 +290,9 @@ export namespace UserForm {
       })
     );
   export type ProfileEditSchema = z.infer<typeof profileEditSchema>;
-
+  export type ProfileEditSchemaError = z.inferFlattenedErrors<
+    typeof profileEditSchema
+  >;
   export const interestEditSchema = z
     .object({
       hobbies: z
@@ -343,6 +345,21 @@ export namespace UserForm {
         }
       ) {
         const uniqueValues = new Set<string>();
+        values.data?.forEach((v, idx) => {
+          if (!v) {
+            return;
+          }
+
+          if (uniqueValues.has(v.name)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `No duplicates allowed.`,
+              path: [values.path, idx, "name"],
+            });
+          } else {
+            uniqueValues.add(v.name);
+          }
+        });
         new_values.data?.forEach((v, idx) => {
           if (!v) {
             return;
@@ -359,22 +376,6 @@ export namespace UserForm {
           }
         });
 
-        values.data?.forEach((v, idx) => {
-          if (!v) {
-            return;
-          }
-
-          if (uniqueValues.has(v.name)) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `No duplicates allowed.`,
-              path: [values.path, idx, "name"],
-            });
-          } else {
-            uniqueValues.add(v.name);
-          }
-        });
-
         if (uniqueValues.size > 10) {
           ctx.addIssue({
             code: z.ZodIssueCode.too_big,
@@ -384,6 +385,7 @@ export namespace UserForm {
           });
         }
       }
+
 
       interestRefine(
         { data: form.new_hobbies, path: "new_hobbies" },
@@ -404,4 +406,7 @@ export namespace UserForm {
     });
 
   export type InterestEditSchema = z.infer<typeof interestEditSchema>;
+  export type InterestEditSchemaError = z.inferFormattedError<
+    typeof interestEditSchema
+  >;
 }

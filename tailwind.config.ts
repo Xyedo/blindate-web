@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       flexBasis: {
-        "1/3-gap-1": "calc(33.3% - (0.25 * 1rem))",
+        "1/2-gap-1": "calc(50% - (0.25 * 1rem))",
       },
     },
   },

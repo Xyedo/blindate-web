@@ -2,4 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-
+@layer base {
+  * {
+    @apply break-words;
+  }
+}
