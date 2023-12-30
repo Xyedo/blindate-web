@@ -4,7 +4,12 @@ import type {
   LoaderFunctionArgs,
   TypedResponse,
 } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+} from "@remix-run/react";
 import { nanoid } from "nanoid";
 import { Fragment, useCallback, useState } from "react";
 import { Label, Input, Button, TextField, Text } from "react-aria-components";
@@ -168,6 +173,8 @@ export const loader = async (
 export default function InterestEditPage() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.formAction === "/profile/interest/edit";
 
   return (
     <Form method="PUT" className="m-4">
@@ -207,7 +214,14 @@ export default function InterestEditPage() {
           new_items: actionData?.new_travels,
         }}
       />
-      <Button type="submit" className="btn btn-primary w-auto text-white my-8">
+      <Button
+        type="submit"
+        isDisabled={isSubmitting}
+        className="btn btn-primary w-auto text-white my-8"
+      >
+        {isSubmitting ? (
+          <span className="loading loading-spinner"></span>
+        ) : null}
         Submit
       </Button>
     </Form>

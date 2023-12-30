@@ -38,9 +38,7 @@ export const action = async (
   const formData = Object.fromEntries(
     Array.from(await args.request.formData()).filter(([_, v]) => v !== "")
   );
-  const sleep = (delay: number) =>
-    new Promise((resolve) => setTimeout(resolve, delay));
-  await sleep(5000);
+  
   if (typeof formData.gender === "string") {
     formData.gender = User.translateToEnum(formData.gender);
   }
