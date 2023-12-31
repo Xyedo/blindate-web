@@ -34,11 +34,11 @@ import { useGeolocation } from "~/hook/useGeolocation";
 
 export const action = async (
   args: ActionFunctionArgs
-): Promise<UserForm.ProfileEditSchemaError | TypedResponse<undefined>> => {
+): Promise<UserForm.ProfileEditSchemaError | TypedResponse<null>> => {
   const formData = Object.fromEntries(
     Array.from(await args.request.formData()).filter(([_, v]) => v !== "")
   );
-  
+
   if (typeof formData.gender === "string") {
     formData.gender = User.translateToEnum(formData.gender);
   }
@@ -56,16 +56,22 @@ export const action = async (
   if (!result) {
     return redirect("/sign-in");
   }
-
-  await User.upsertDetail(result.token, result.userId, {
+  const payload = {
     ...profileEdit.data,
     location: {
       lat: profileEdit.data.latitude,
       lng: profileEdit.data.longitude,
     },
-  });
+  } as Optional<UserForm.ProfileEditSchema, "latitude" | "longitude">;
 
-  return json(undefined, 200);
+  delete payload.latitude;
+  delete payload.longitude;
+
+  await User.upsertDetail(result.token, result.userId, payload).catch(
+    console.log
+  );
+
+  return json(null, 200);
 };
 
 export const loader = async (
@@ -95,19 +101,6 @@ export const loader = async (
   const drinkingSmokeLevel = User.getEnumDrinnkingOrSmokeLevel();
   const zodiac = User.getEnumZodiac();
 
-  if (process.env?.["APP_ENV"] == "local") {
-    return {
-      userDetail: undefined,
-      enums: {
-        gender,
-        relationshipPrefrence,
-        educationLevel,
-        drinkingSmokeLevel,
-        zodiac,
-      },
-    };
-  }
-
   const result = await guard(args);
   if (!result) {
     return redirect("/sign-in");
@@ -132,7 +125,7 @@ export default function EditProfilePage() {
   const geog = useGeolocation({ lat: -6.2, lng: 106.816 });
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const isSubmitting = navigation.formAction === "/profile/edit";
+  const isSubmitting = navigation.state === "submitting";
 
   if (!result) {
     return null;
@@ -177,6 +170,7 @@ export default function EditProfilePage() {
             type="text"
             name="alias"
             isRequired
+            defaultValue={userDetail?.alias}
             minLength={5}
             label="Alias"
           />
@@ -184,11 +178,14 @@ export default function EditProfilePage() {
             name="gender"
             isRequired
             label="Gender"
+            defaultSelectedKey={userDetail?.gender}
             items={enums.gender}
           />
           <TextField
             className="form-control w-full max-w-xs justify-center"
             aria-label="Bio"
+            name="bio"
+            defaultValue={userDetail?.bio}
             isRequired
           >
             <Label className="label label-text">Bio</Label>
@@ -202,7 +199,7 @@ export default function EditProfilePage() {
             className="form-control w-full max-w-xs justify-center"
             name="height"
             aria-label="Height in (Cm)"
-            defaultValue={userDetail?.height}
+            defaultValue={userDetail?.height ?? undefined}
             maxValue={400}
           >
             <Label className="label label-text">Height in (Cm)</Label>
@@ -215,39 +212,47 @@ export default function EditProfilePage() {
           <EditProfileSelect
             name="education_level"
             label="Education Level"
+            defaultSelectedKey={userDetail?.education_level ?? undefined}
             items={enums.educationLevel}
           />
           <EditProfileSelect
             name="drinking"
             label="Drinking"
+            defaultSelectedKey={userDetail?.drinking ?? undefined}
             items={enums.drinkingSmokeLevel}
           />
           <EditProfileSelect
             name="smoking"
             label="Smoking"
+            defaultSelectedKey={userDetail?.smoking ?? undefined}
             items={enums.drinkingSmokeLevel}
           />
           <EditProfileSelect
             name="relationship_pref"
             label="Relationship Preference"
+            defaultSelectedKey={
+              userDetail?.relationship_preferences ?? undefined
+            }
             items={enums.relationshipPrefrence}
           />
           <EditProfileSelect
             name="looking_for"
             isRequired
             label="Looking For"
+            defaultSelectedKey={userDetail?.looking_for}
             items={enums.gender}
           />
           <EditProfileSelect
             name="zodiac"
             label="Zodiac"
+            defaultSelectedKey={userDetail?.zodiac ?? undefined}
             items={enums.zodiac}
           />
 
           <NumberField
             className="form-control w-full max-w-xs justify-center"
             name="kids"
-            defaultValue={userDetail?.kids}
+            defaultValue={userDetail?.kids ?? undefined}
             maxValue={100}
             aria-label="Kids"
           >
@@ -258,7 +263,7 @@ export default function EditProfilePage() {
           <EditProfileTextField
             name="work"
             type="text"
-            defaultValue={userDetail?.work}
+            defaultValue={userDetail?.work ?? undefined}
             maxLength={100}
             label="Work"
           />

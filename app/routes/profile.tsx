@@ -17,83 +17,6 @@ export const loader = async (
     }
   | TypedResponse<null>
 > => {
-  if (process.env?.["APP_ENV"] == "local") {
-    return {
-      user: {
-        firstName: "Hafid",
-        lastName: "Mahdi",
-        backupCodeEnabled: false,
-        banned: false,
-        birthday: "1345",
-        createdAt: 124124,
-        emailAddresses: [],
-        externalAccounts: [],
-        externalId: null,
-        gender: "male",
-        id: "user_asrf90",
-        hasImage: false,
-        imageUrl: "",
-        lastSignInAt: 124125412,
-        passwordEnabled: false,
-        phoneNumbers: [],
-        primaryEmailAddressId: null,
-        primaryPhoneNumberId: null,
-        primaryWeb3WalletId: null,
-        privateMetadata: {},
-        publicMetadata: {},
-        totpEnabled: false,
-        twoFactorEnabled: false,
-        unsafeMetadata: {},
-        updatedAt: 1235235,
-        username: "adad",
-        web3Wallets: [],
-        profileImageUrl: "",
-      },
-      userDetail: {
-        alias: "admin",
-        bio: `hehehe gatau nich\n\n\nhit me up pls`,
-        gender: "Male",
-        geo: {
-          lat: 10,
-          lng: 80,
-        },
-        looking_for: "Female",
-        user_id: "user_1234",
-        address: await reverseGeocode({
-          lat: -6.2,
-          lng: 106.8166,
-        }),
-        from_location: "Indonesia",
-        drinking: "Ocassionally",
-        smoking: "Never",
-        education_level: "Bachelor Degree",
-        work: "Software Engineer",
-        relationship_preferences: "Casual",
-        height: 175,
-        kids: 0,
-        zodiac: "Virgo",
-        profile_picture_urls: [],
-        hobbies: [
-          { id: "hobbies_1", name: "Ngoding" },
-          { id: "hobbies_2", name: "Kulineran" },
-          { id: "hobbies_3", name: "Pacaran" },
-        ],
-        movie_series: [
-          { id: "movie_series_1", name: "100 Days" },
-          { id: "movie_series_2", name: "Spartans" },
-        ],
-        sports: [
-          { id: "sport_1", name: "Basket" },
-          { id: "sport_2", name: "Futsal" },
-        ],
-        travels: [
-          { id: "travel_1", name: "Gunung" },
-          { id: "travel_2", name: "Bali" },
-          { id: "travel_3", name: "Singapore" },
-        ],
-      },
-    };
-  }
 
   const result = await guard(args);
   if (!result) {
@@ -169,8 +92,8 @@ export default function Profile() {
           </div>
           <div className="pt-1">
             <WorkAndEducationLevel
-              work={userDetail.work}
-              educationLevel={userDetail.education_level}
+              work={userDetail.work ?? undefined}
+              educationLevel={userDetail.education_level ?? undefined}
             />
             <p>{userDetail.address}</p>
             <p className="text-gray-50">{userDetail.bio}</p>
@@ -243,7 +166,7 @@ export default function Profile() {
           </div>
           <div className="divider">Interest</div>
           <div className="flex flex-col gap-2 m-2">
-            {userDetail.hobbies.length > 1 ? (
+            {userDetail.hobbies.length > 0 ? (
               <TagGroup selectionMode="none">
                 <Label className="label">Hobbies</Label>
                 <TagList className="flex gap-2">
@@ -255,7 +178,7 @@ export default function Profile() {
                 </TagList>
               </TagGroup>
             ) : null}
-            {userDetail.movie_series.length > 1 ? (
+            {userDetail.movie_series.length > 0 ? (
               <TagGroup selectionMode="none">
                 <Label className="label">Movies & Series</Label>
                 <TagList className="flex gap-2">
@@ -267,7 +190,7 @@ export default function Profile() {
                 </TagList>
               </TagGroup>
             ) : null}
-            {userDetail.sports.length > 1 ? (
+            {userDetail.sports.length > 0 ? (
               <TagGroup selectionMode="none">
                 <Label className="label">Sports</Label>
                 <TagList className="flex gap-2">
@@ -279,7 +202,7 @@ export default function Profile() {
                 </TagList>
               </TagGroup>
             ) : null}
-            {userDetail.travels.length > 1 ? (
+            {userDetail.travels.length > 0 ? (
               <TagGroup selectionMode="none">
                 <Label className="label">Travels</Label>
                 <TagList className="flex gap-2">

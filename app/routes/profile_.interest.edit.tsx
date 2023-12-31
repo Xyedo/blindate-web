@@ -12,13 +12,20 @@ import {
 } from "@remix-run/react";
 import { nanoid } from "nanoid";
 import { Fragment, useCallback, useState } from "react";
-import { Label, Input, Button, TextField, Text } from "react-aria-components";
+import {
+  Label,
+  Input,
+  Button,
+  TextField,
+  Text,
+  FieldError,
+} from "react-aria-components";
 import { guard } from "~/api/api";
 import { User, UserForm } from "~/api/user";
 
 export const action = async (
   args: ActionFunctionArgs
-): Promise<UserForm.InterestEditSchemaError | TypedResponse<undefined>> => {
+): Promise<UserForm.InterestEditSchemaError | TypedResponse<null>> => {
   const formData = await args.request.formData();
 
   const data: UserForm.InterestEditSchema = {};
@@ -68,30 +75,38 @@ export const action = async (
       data.travels ? data.travels.push(entry) : (data.travels = [entry]);
     }
 
-    data.new_hobbies =
-      (formData.getAll("new_hobbies[]") as string[]) ?? undefined;
-    data.new_movie_series =
-      (formData.getAll("new_movie_series[]") as string[]) ?? undefined;
-    data.new_sports =
-      (formData.getAll("new_sports[]") as string[]) ?? undefined;
-    data.new_travels =
-      (formData.getAll("new_travels[]") as string[]) ?? undefined;
+    const newHobbies = formData.getAll("new_hobbies[]") as string[];
+    data.new_hobbies = newHobbies.length > 0 ? newHobbies : undefined;
 
+    const newMovieSeries = formData.getAll("new_movie_series[]") as string[];
+    data.new_movie_series =
+      newMovieSeries.length > 0 ? newMovieSeries : undefined;
+
+    const newSports = formData.getAll("new_sports[]") as string[];
+    data.new_sports = newSports.length > 0 ? newSports : undefined;
+
+    const newTravels = formData.getAll("new_travels[]") as string[];
+    data.new_travels = newTravels.length > 0 ? newTravels : undefined;
+
+    const deletedHobbies = formData.getAll("deleted_hobbies[]") as string[];
     data.deleted_hobbies =
-      (formData.getAll("deleted_hobbies[]") as string[]) ?? undefined;
+      deletedHobbies.length > 0 ? deletedHobbies : undefined;
+
+    const deletedMovies = formData.getAll("deleted_movie_series[]") as string[];
     data.deleted_movie_series =
-      (formData.getAll("deleted_movie_series[]") as string[]) ?? undefined;
-    data.deleted_sports =
-      (formData.getAll("deleted_sports[]") as string[]) ?? undefined;
+      deletedMovies.length > 0 ? deletedMovies : undefined;
+
+    const deletedSports = formData.getAll("deleted_sports[]") as string[];
+    data.deleted_sports = deletedSports.length > 0 ? deletedSports : undefined;
+
+    const deletedTravels = formData.getAll("deleted_travels[]") as string[];
     data.deleted_travels =
-      (formData.getAll("deleted_travels[]") as string[]) ?? undefined;
+      deletedTravels.length > 0 ? deletedTravels : undefined;
   }
 
   const interest = UserForm.interestEditSchema.safeParse(data);
   if (!interest.success) {
-    const d = interest.error.format();
-    console.log(JSON.stringify(d, null, 2));
-    return d;
+    return interest.error.format();
   }
 
   const res = await guard(args);
@@ -120,37 +135,12 @@ export const action = async (
     },
   });
 
-  return json(undefined, 200);
+  return json(null, 200);
 };
 
 export const loader = async (
   args: LoaderFunctionArgs
 ): Promise<{ interest: User.Interest } | TypedResponse<never>> => {
-  if (process.env?.["APP_ENV"] == "local") {
-    return {
-      interest: {
-        hobbies: [
-          { id: "hobbies_1", name: "Ngoding" },
-          { id: "hobbies_2", name: "Kulineran" },
-          { id: "hobbies_3", name: "Pacaran" },
-        ],
-        movie_series: [
-          { id: "movie_series_1", name: "100 Days" },
-          { id: "movie_series_2", name: "Spartans" },
-        ],
-        sports: [
-          { id: "sport_1", name: "Basket" },
-          { id: "sport_2", name: "Futsal" },
-        ],
-        travels: [
-          { id: "travel_1", name: "Gunung" },
-          { id: "travel_2", name: "Bali" },
-          { id: "travel_3", name: "Singapore" },
-        ],
-      },
-    };
-  }
-
   const result = await guard(args);
   if (!result) {
     return redirect("/sign-in");
@@ -174,7 +164,7 @@ export default function InterestEditPage() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const isSubmitting = navigation.formAction === "/profile/interest/edit";
+  const isSubmitting = navigation.state === "submitting";
 
   return (
     <Form method="PUT" className="m-4">
@@ -441,13 +431,24 @@ function InterestEditItem({
 }
 
 function InterestEditErrorField(props: { errors: string[] | undefined }) {
-  if (!props.errors) {
-    return null;
-  }
-
   return (
-    <Text className="text-sm text-error" slot="errorMessage">
-      {props.errors?.join(" ")}
-    </Text>
+    <>
+      <FieldError>
+        {(v) =>
+          v.isInvalid ? (
+            <Label className="label">
+              <Text className="label-text-alt text-error" slot="errorMessage">
+                {v.validationErrors.join(" ")}
+              </Text>
+            </Label>
+          ) : null
+        }
+      </FieldError>
+      {props.errors ? (
+        <Text className="text-sm text-error" slot="errorMessage">
+          {props.errors?.join(" ")}
+        </Text>
+      ) : null}
+    </>
   );
 }

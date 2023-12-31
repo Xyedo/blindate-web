@@ -1,57 +1,39 @@
-import { getAuth } from "@clerk/remix/ssr.server";
 import { redirect } from "@remix-run/node";
 import type { LoaderFunction, MetaFunction } from "@remix-run/node";
-import axios from "axios";
-import { getBaseURLV1 } from "~/api/api";
+import { useLoaderData } from "@remix-run/react";
+import { guard } from "~/api/api";
+import { User } from "~/api/user";
 
 export const meta: MetaFunction = () => {
   return [
     { title: "Blindate" },
     { name: "description", content: "Welcome to Remix!" },
-    { }
+    {},
   ];
 };
 
-
-
-const userAPI = getBaseURLV1() + "/users";
 export const loader: LoaderFunction = async (args) => {
-  if (process.env?.["APP_ENV"] == "local") {
-    return {}
-  }
-  const { userId, getToken } = await getAuth(args);
-  if (!userId) {
-    return redirect("/sign-in");
-  }
-
-  const token = await getToken();
-  if (!token) {
+  const result = await guard(args)
+  if (!result) {
     return redirect("/sign-in")
   }
-
-
-
   //TODO: Get All Conversation, UserDetail, Match
-  const resp = await axios.get(`${userAPI}/${userId}/detail`, {
-    headers: {
-      "Authorization": `Bearer ${token}`
-    }
-  });
-
-  switch (resp.status) {
-    case 404:
-      return redirect("/profile/edit")
-    default:
-      const userDetail = await resp.data()
-      return userDetail;
+  const userDetail = await User.getDetail(result.token, result.userId);
+  if (!userDetail) {
+    return redirect("/profile/edit")
   }
+
+  return {}
 };
 
-
 export default function Index() {
+  const data = useLoaderData<typeof loader>();
+  if (!data) {
+    return null;
+  }
   return (
-    <>
-     <h1>HELLO TEST</h1> 
-    </>
+    <div>
+      <h1>HELLO TEST</h1>
+    </div>
   );
 }

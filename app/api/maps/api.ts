@@ -26,17 +26,10 @@ export async function reverseGeocode(coords: {
       params: {
         latlng: `${coords.lat},${coords.lng}`,
         languange: "en",
-        result_type: "administrative_area_level_1|administrative_area_level_2",
       },
     });
     
-    const response = res.data;
-    if (res.status >= 400) {
-      throw new Error(response);
-    }
-    console.log(response.results);
-    const data = reverseGeocodeSchema.parse(response);
-
+    const data = reverseGeocodeSchema.parse(res.data);
     data.results
       .filter((v) =>
         v.types.some(

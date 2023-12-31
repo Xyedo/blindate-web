@@ -16,6 +16,7 @@
     "@remix-run/react": "^2.2.0",
     "@remix-run/serve": "^2.2.0",
     "axios": "^1.6.2",
+    "axios-retry": "^4.0.0",
     "clsx": "^2.1.0",
     "isbot": "^3.6.8",
     "nanoid": "^5.0.4",

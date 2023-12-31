@@ -32,9 +32,9 @@ export const links: LinksFunction = () => [
 // ];
 
 //TODO: add global error  boundaries
-export const ErrorBoundary = ClerkErrorBoundary();
 
 export const loader: LoaderFunction = (args) => rootAuthLoader(args);
+export const ErrorBoundary = ClerkErrorBoundary();
 
 function App() {
   return (
@@ -64,13 +64,12 @@ function App() {
 
 function MobileNavigation() {
   const location = useLocation();
-  console.log(location);
   const size = useWindowSize();
   if (!size || size.width >= 1024) {
     return null;
   }
   return (
-    <div className="btm-nav sticky">
+    <div className="btm-nav sticky ">
       <Form
         action="/"
         className={clsx(location.pathname === "/" ? "active" : undefined)}

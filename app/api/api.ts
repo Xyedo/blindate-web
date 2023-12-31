@@ -1,29 +1,34 @@
 import { getAuth } from "@clerk/remix/ssr.server";
-import type { DataFunctionArgs} from "@remix-run/node";
+import type { DataFunctionArgs } from "@remix-run/node";
+import axios from "axios";
+import axiosRetry from "axios-retry";
 
-export const getBaseURLV1 = () => {
+const getBaseURLV1 = () => {
   if (!process.env?.["API_BASE_URL"]) {
     throw new Error("invalid env");
   }
 
-  return `${process.env?.["API_BASE_URL"]}/v1`;
+  return `${process.env?.["API_BASE_URL"]}/v1/`;
 };
 
+axiosRetry(axios, { retries: 3 });
+export const api = axios.create({
+  baseURL: getBaseURLV1(),
+  validateStatus(status) {
+    return status < 500;
+  },
+});
 
-
-export async function guard(args:DataFunctionArgs) {
+export async function guard(args: DataFunctionArgs) {
   const { userId, getToken, user } = await getAuth(args);
   if (!userId) {
-    return undefined
+    return undefined;
   }
 
   const token = await getToken();
   if (!token) {
-    return undefined
+    return undefined;
   }
 
-  return {userId, token, user}
-
+  return { userId, token, user };
 }
-
-

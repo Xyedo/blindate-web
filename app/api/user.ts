@@ -1,7 +1,6 @@
 import type { AxiosResponse } from "axios";
-import axios from "axios";
 import z from "zod";
-import { getBaseURLV1 } from "~/api/api";
+import { api } from "~/api/api";
 
 export namespace User {
   const detail = z.object({
@@ -10,16 +9,16 @@ export namespace User {
     geo: z.object({ lat: z.number(), lng: z.number() }),
     bio: z.string(),
     gender: z.string(),
-    from_location: z.string().optional(),
-    height: z.number().optional(),
-    education_level: z.string().optional(),
-    drinking: z.string().optional(),
-    smoking: z.string().optional(),
-    relationship_preferences: z.string().optional(),
+    from_location: z.string().nullable(),
+    height: z.number().nullable(),
+    education_level: z.string().nullable(),
+    drinking: z.string().nullable(),
+    smoking: z.string().nullable(),
+    relationship_preferences: z.string().nullable(),
     looking_for: z.string(),
-    zodiac: z.string().optional(),
-    kids: z.number().optional(),
-    work: z.string().optional(),
+    zodiac: z.string().nullable(),
+    kids: z.number().nullable(),
+    work: z.string().nullable(),
     hobbies: z.array(
       z
         .object({
@@ -59,30 +58,41 @@ export namespace User {
     Schema,
     "hobbies" | "movie_series" | "sports" | "travels"
   >;
-  export const API = getBaseURLV1() + "/users";
 
   export async function getDetail(
     token: string,
     userId: string
   ): Promise<Schema | undefined> {
-    const resp = await axios.get(`${API}/${userId}/detail`, {
+    const resp = await api.get(`users/${userId}/detail`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      timeout: 500,
-      responseType: "json",
     });
+
     switch (resp.status) {
       case 404:
         return undefined;
+      case 401:
+        throw new Error("unauthorized", {
+          cause: resp.data,
+        });
       case 200:
-        const { data: userDetail } = await resp.data();
+        const { data: userDetail } = resp.data;
         const data = detail.parse(userDetail);
         data.gender = translateGenderEnumToHuman(data.gender as GenderEnum);
+        data.looking_for = translateGenderEnumToHuman(
+          data.gender as GenderEnum
+        );
+
         return data;
 
       default:
-        throw new Response("Internal Server error", { status: 500 });
+        throw new Error("IDK", {
+          cause: {
+            data: resp.data,
+            status: resp.status,
+          },
+        });
     }
   }
   export const createDetailSchema = z.object({
@@ -116,30 +126,28 @@ export namespace User {
   ): Promise<void> {
     const userDetail = createDetailSchema.parse(payload);
 
-    const resp = await axios.patch(`${API}/${userId}/detail`, userDetail, {
+    const resp = await api.patch(`users/${userId}/detail`, userDetail, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
 
     if (resp.status == 404) {
-      const resp = await axios.post(`${API}/${userId}/detail`, userDetail, {
+      const resp = await api.post(`users/${userId}/detail`, userDetail, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (resp.status >= 400) {
-        const errBody = await resp.data();
-        throw new Error(errBody);
+        throw new Error(JSON.stringify(resp.data, null, 2));
       }
 
       return;
     }
 
     if (resp.status >= 400) {
-      const errBody = await resp.data();
-      throw new Error(errBody);
+      throw new Error(JSON.stringify(resp.data, null, 2));
     }
   }
 
@@ -180,22 +188,61 @@ export namespace User {
       delete: DeleteInterest;
     }
   ): Promise<void> {
-    const deleteResp = await axios.post(
-      `${API}/${userId}/interest/delete`,
-      deleteInterest.parse(payload.delete),
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    console.log(payload)
 
-    if (deleteResp.status >= 400) {
-      throw new Error(deleteResp.data);
+    const deletePayload = deleteInterest.parse(payload.delete);
+    if (
+      deletePayload.hobbie_ids !== undefined ||
+      deletePayload.movie_serie_ids !== undefined ||
+      deletePayload.sport_ids !== undefined ||
+      deletePayload.travel_ids !== undefined
+    ) {
+      const deleteResp = await api.post(
+        `users/${userId}/detail/interest/delete`,
+        deletePayload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (deleteResp.status >= 400) {
+        throw new Error(JSON.stringify(deleteResp.data, null, 2));
+      }
     }
 
     const bulk: Promise<AxiosResponse>[] = [];
 
+    const createPayload = createInterest.parse(payload.create);
+    if (
+      createPayload.hobbies !== undefined ||
+      createPayload.movie_series !== undefined ||
+      createPayload.sports !== undefined ||
+      createPayload.travels !== undefined
+    ) {
+      bulk.push(
+        api.post(`users/${userId}/detail/interest`, createPayload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      );
+    }
+    const patchPayload = patchInterest.parse(payload.update);
+    if (
+      patchPayload.hobbies !== undefined ||
+      patchPayload.movie_series !== undefined ||
+      patchPayload.sports !== undefined ||
+      patchPayload.travels !== undefined
+    ) {
+      bulk.push(
+        api.patch(`users/${userId}/detail/interest`, patchPayload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      );
+    }
     const resp = await Promise.allSettled(bulk);
     resp.forEach((v) => {
       if (v.status === "rejected") {
@@ -203,7 +250,12 @@ export namespace User {
       }
 
       if (v.value.status >= 400) {
-        throw new Error(v.value.data);
+        throw new Error("err", {
+          cause: {
+            status: v.value.status,
+            data: v.value.data,
+          }
+        });
       }
     });
   }
@@ -385,7 +437,6 @@ export namespace UserForm {
           });
         }
       }
-
 
       interestRefine(
         { data: form.new_hobbies, path: "new_hobbies" },
