@@ -20,21 +20,15 @@ import { CgProfile } from "react-icons/cg/index.js";
 import { PiHandSwipeRight } from "react-icons/pi/index.js";
 import clsx from "clsx";
 import { IconContext } from "react-icons";
+import { BlindateErrorBoundary } from "~/errorBoundary";
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
 ];
 
-// export const meta: MetaFunction = () => [
-//   {
-//     name: "viewport",
-//     content: "viewport-fit=cover",
-//   },
-// ];
 
-//TODO: add global error  boundaries
 
 export const loader: LoaderFunction = (args) => rootAuthLoader(args);
-export const ErrorBoundary = ClerkErrorBoundary();
+export const ErrorBoundary = ClerkErrorBoundary(BlindateErrorBoundary);
 
 function App() {
   return (

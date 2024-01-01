@@ -1,4 +1,4 @@
-import type { AxiosResponse } from "axios";
+import type { AxiosError, AxiosResponse } from "axios";
 import z from "zod";
 import { api } from "~/api/api";
 
@@ -70,12 +70,6 @@ export namespace User {
     });
 
     switch (resp.status) {
-      case 404:
-        return undefined;
-      case 401:
-        throw new Error("unauthorized", {
-          cause: resp.data,
-        });
       case 200:
         const { data: userDetail } = resp.data;
         const data = detail.parse(userDetail);
@@ -87,12 +81,9 @@ export namespace User {
         return data;
 
       default:
-        throw new Error("IDK", {
-          cause: {
-            data: resp.data,
-            status: resp.status,
-          },
-        });
+        console.log(
+          JSON.stringify({ status: resp.status, data: resp.data }, null, 2)
+        );
     }
   }
   export const createDetailSchema = z.object({
@@ -126,29 +117,27 @@ export namespace User {
   ): Promise<void> {
     const userDetail = createDetailSchema.parse(payload);
 
-    const resp = await api.patch(`users/${userId}/detail`, userDetail, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (resp.status == 404) {
-      const resp = await api.post(`users/${userId}/detail`, userDetail, {
+    await api
+      .patch(`users/${userId}/detail`, userDetail, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+      })
+      .catch(async (error: AxiosError) => {
+        if (!error.response) {
+          throw error;
+        }
+
+        if (error.status != 404) {
+          throw error;
+        }
+
+        await api.post(`users/${userId}/detail`, userDetail, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
       });
-
-      if (resp.status >= 400) {
-        throw new Error(JSON.stringify(resp.data, null, 2));
-      }
-
-      return;
-    }
-
-    if (resp.status >= 400) {
-      throw new Error(JSON.stringify(resp.data, null, 2));
-    }
   }
 
   const createInterest = z.object({
@@ -188,8 +177,6 @@ export namespace User {
       delete: DeleteInterest;
     }
   ): Promise<void> {
-    console.log(payload)
-
     const deletePayload = deleteInterest.parse(payload.delete);
     if (
       deletePayload.hobbie_ids !== undefined ||
@@ -197,7 +184,7 @@ export namespace User {
       deletePayload.sport_ids !== undefined ||
       deletePayload.travel_ids !== undefined
     ) {
-      const deleteResp = await api.post(
+      await api.post(
         `users/${userId}/detail/interest/delete`,
         deletePayload,
         {
@@ -206,9 +193,6 @@ export namespace User {
           },
         }
       );
-      if (deleteResp.status >= 400) {
-        throw new Error(JSON.stringify(deleteResp.data, null, 2));
-      }
     }
 
     const bulk: Promise<AxiosResponse>[] = [];
@@ -243,21 +227,7 @@ export namespace User {
         })
       );
     }
-    const resp = await Promise.allSettled(bulk);
-    resp.forEach((v) => {
-      if (v.status === "rejected") {
-        throw new Error(v.reason);
-      }
-
-      if (v.value.status >= 400) {
-        throw new Error("err", {
-          cause: {
-            status: v.value.status,
-            data: v.value.data,
-          }
-        });
-      }
-    });
+    await Promise.all(bulk);
   }
 
   export type GenderEnum = "FEMALE" | "MALE" | "Other";

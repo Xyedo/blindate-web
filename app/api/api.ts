@@ -14,9 +14,6 @@ const getBaseURLV1 = () => {
 axiosRetry(axios, { retries: 3 });
 export const api = axios.create({
   baseURL: getBaseURLV1(),
-  validateStatus(status) {
-    return status < 500;
-  },
 });
 
 export async function guard(args: DataFunctionArgs) {
