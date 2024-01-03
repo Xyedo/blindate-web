@@ -10,6 +10,7 @@ import {
   useLoaderData,
   useNavigation,
 } from "@remix-run/react";
+import axios from "axios";
 import type { SelectProps, TextFieldProps } from "react-aria-components";
 import {
   Button,
@@ -28,9 +29,97 @@ import {
   TextField,
 } from "react-aria-components";
 
-import { guard } from "~/api/api";
+import { apiError, guard } from "~/api/api";
 import { User, UserForm } from "~/api/user";
 import { useGeolocation } from "~/hook/useGeolocation";
+
+export const loader = async (
+  args: DataFunctionArgs
+): Promise<
+  | TypedResponse<null>
+  | {
+      userDetail: User.Schema | undefined;
+      enums: {
+        gender: string[];
+        relationshipPrefrence: ReturnType<
+          typeof User.getEnumRelationshipPrefrence
+        >;
+        educationLevel: ReturnType<typeof User.getEnumEducationLevel>;
+        drinkingSmokeLevel: ReturnType<
+          typeof User.getEnumDrinnkingOrSmokeLevel
+        >;
+        zodiac: ReturnType<typeof User.getEnumZodiac>;
+      };
+    }
+> => {
+  const gender = User.getEnumGender().map((v) =>
+    User.translateGenderEnumToHuman(v)
+  );
+  const relationshipPrefrence = User.getEnumRelationshipPrefrence();
+  const educationLevel = User.getEnumEducationLevel();
+  const drinkingSmokeLevel = User.getEnumDrinnkingOrSmokeLevel();
+  const zodiac = User.getEnumZodiac();
+
+  const result = await guard(args);
+  if (!result) {
+    return redirect("/sign-in");
+  }
+
+  const enums = {
+    gender,
+    relationshipPrefrence,
+    educationLevel,
+    drinkingSmokeLevel,
+    zodiac,
+  };
+
+  return User.getDetail(result.token, result.userId)
+    .then((userDetail) => {
+      return {
+        userDetail,
+        enums,
+      };
+    })
+    .catch((e) => {
+      if (!axios.isAxiosError(e)) {
+        throw e;
+      }
+
+      if (!e.response) {
+        throw e;
+      }
+
+      const data = apiError.parse(e.response.data);
+      if (e.response.status === 404) {
+        if (data.errors?.[0].code === "USER_NOT_FOUND") {
+          return {
+            userDetail: undefined,
+            enums,
+          };
+        }
+
+        throw e;
+      }
+
+      if (e.response.status === 401) {
+        if (data.errors?.[0].code === "EXPIRED_AUTH") {
+          return redirect("/profile/edit");
+        }
+        if (
+          data.errors?.[0].code &&
+          ["INVALID_AUTHORIZATION", "UNAUTHORIZED"].includes(
+            data.errors?.[0].code
+          )
+        ) {
+          return redirect("/sign-in");
+        }
+
+        throw e;
+      }
+      console.log(JSON.stringify(data, null, 2))
+      throw e;
+    });
+};
 
 export const action = async (
   args: ActionFunctionArgs
@@ -73,53 +162,6 @@ export const action = async (
 
   return json(null, 200);
 };
-
-export const loader = async (
-  args: DataFunctionArgs
-): Promise<
-  | TypedResponse<null>
-  | {
-      userDetail: User.Schema | undefined;
-      enums: {
-        gender: string[];
-        relationshipPrefrence: ReturnType<
-          typeof User.getEnumRelationshipPrefrence
-        >;
-        educationLevel: ReturnType<typeof User.getEnumEducationLevel>;
-        drinkingSmokeLevel: ReturnType<
-          typeof User.getEnumDrinnkingOrSmokeLevel
-        >;
-        zodiac: ReturnType<typeof User.getEnumZodiac>;
-      };
-    }
-> => {
-  const gender = User.getEnumGender().map((v) =>
-    User.translateGenderEnumToHuman(v)
-  );
-  const relationshipPrefrence = User.getEnumRelationshipPrefrence();
-  const educationLevel = User.getEnumEducationLevel();
-  const drinkingSmokeLevel = User.getEnumDrinnkingOrSmokeLevel();
-  const zodiac = User.getEnumZodiac();
-
-  const result = await guard(args);
-  if (!result) {
-    return redirect("/sign-in");
-  }
-
-  const userDetail = await User.getDetail(result.token, result.userId);
-
-  return {
-    userDetail,
-    enums: {
-      gender,
-      relationshipPrefrence,
-      educationLevel,
-      drinkingSmokeLevel,
-      zodiac,
-    },
-  };
-};
-
 export default function EditProfilePage() {
   const result = useLoaderData<typeof loader>();
   const geog = useGeolocation({ lat: -6.2, lng: 106.816 });

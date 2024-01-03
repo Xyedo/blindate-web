@@ -1,4 +1,6 @@
-import type { AxiosError, AxiosResponse } from "axios";
+import { json } from "@remix-run/node";
+import type { AxiosResponse } from "axios";
+import axios from "axios";
 import z from "zod";
 import { api } from "~/api/api";
 
@@ -62,7 +64,7 @@ export namespace User {
   export async function getDetail(
     token: string,
     userId: string
-  ): Promise<Schema | undefined> {
+  ): Promise<Schema> {
     const resp = await api.get(`users/${userId}/detail`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -81,9 +83,10 @@ export namespace User {
         return data;
 
       default:
-        console.log(
-          JSON.stringify({ status: resp.status, data: resp.data }, null, 2)
-        );
+        throw json(resp.data, {
+          status: 500,
+          statusText: "internal server error",
+        });
     }
   }
   export const createDetailSchema = z.object({
@@ -116,6 +119,7 @@ export namespace User {
     payload: CreateDetailSchema
   ): Promise<void> {
     const userDetail = createDetailSchema.parse(payload);
+    console.log(userDetail)
 
     await api
       .patch(`users/${userId}/detail`, userDetail, {
@@ -123,15 +127,19 @@ export namespace User {
           Authorization: `Bearer ${token}`,
         },
       })
-      .catch(async (error: AxiosError) => {
+      .catch(async (error) => {
+        if (!axios.isAxiosError(error)) {
+          throw error;
+        }
+        
         if (!error.response) {
           throw error;
         }
 
-        if (error.status != 404) {
+        if (error.response.status != 404) {
           throw error;
         }
-
+        
         await api.post(`users/${userId}/detail`, userDetail, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -184,15 +192,11 @@ export namespace User {
       deletePayload.sport_ids !== undefined ||
       deletePayload.travel_ids !== undefined
     ) {
-      await api.post(
-        `users/${userId}/detail/interest/delete`,
-        deletePayload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.post(`users/${userId}/detail/interest/delete`, deletePayload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     }
 
     const bulk: Promise<AxiosResponse>[] = [];

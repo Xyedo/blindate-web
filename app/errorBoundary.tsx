@@ -1,5 +1,5 @@
 import { isRouteErrorResponse, useRouteError } from "@remix-run/react";
-import { AxiosError } from "axios";
+import axios from "axios";
 
 export function BlindateErrorBoundary() {
   const err = useRouteError();
@@ -13,24 +13,27 @@ export function BlindateErrorBoundary() {
         <p>data: {err.data}</p>
       </div>
     );
-  } else if (err instanceof AxiosError) {
-    if (err.response) {
-      return (
-        <div>
-          <h1>
-            {err.response.status} {err.response.statusText}
-          </h1>
-          <p>data: {err.response.data}</p>
-        </div>
-      );
-    } else if (err.request) {
-      return (
-        <div>
-          <h1>Invalid request</h1>
-          <p>data: {err.request}</p>
-        </div>
-      );
-    } else {
+  }
+  if (err instanceof Error) {
+    if (axios.isAxiosError(err)) {
+      if (err.response) {
+        return (
+          <div>
+            <h1>
+              {err.response.status} {err.response.statusText}
+            </h1>
+            <p>data: {err.response.data}</p>
+          </div>
+        );
+      }
+      if (err.request) {
+        return (
+          <div>
+            <h1>Invalid request</h1>
+            <p>data: {err.request}</p>
+          </div>
+        );
+      }
       return (
         <div>
           <h1>Unknown Error</h1>
@@ -38,7 +41,6 @@ export function BlindateErrorBoundary() {
         </div>
       );
     }
-  } else if (err instanceof Error) {
     return (
       <div>
         <h1>Error</h1>
@@ -47,7 +49,7 @@ export function BlindateErrorBoundary() {
         <pre>{err.stack}</pre>
       </div>
     );
-  } else {
-    return <h1>Unknown error</h1>;
   }
+
+  return <h1>Unknown error</h1>;
 }

@@ -1,12 +1,13 @@
 import type { DataFunctionArgs, TypedResponse } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { guard } from "~/api/api";
+import { apiError, guard } from "~/api/api";
 import { User } from "~/api/user";
 
 import type { User as ClerkUser } from "@clerk/remix/api.server";
 import { Button, Label, Tag, TagGroup, TagList } from "react-aria-components";
 import { reverseGeocode } from "~/api/maps/api";
+import axios from "axios";
 
 export const loader = async (
   args: DataFunctionArgs
@@ -17,28 +18,58 @@ export const loader = async (
     }
   | TypedResponse<null>
 > => {
-
   const result = await guard(args);
   if (!result) {
     return redirect("/sign-in");
   }
 
-  const userDetail = await User.getDetail(result.token, result.userId);
+  return User.getDetail(result.token, result.userId)
+    .then(async (userDetail) => ({
+      user: result.user,
+      userDetail: {
+        ...userDetail,
+        address: await reverseGeocode({
+          lat: userDetail.geo.lat,
+          lng: userDetail.geo.lng,
+        }),
+      },
+    }))
+    .catch((e) => {
+      if (!axios.isAxiosError(e)) {
+        throw e;
+      }
 
-  if (!userDetail) {
-    return redirect("/profile/edit");
-  }
+      if (!e.response) {
+        throw e;
+      }
 
-  return {
-    user: result.user,
-    userDetail: {
-      ...userDetail,
-      address: await reverseGeocode({
-        lat: userDetail.geo.lat,
-        lng: userDetail.geo.lng,
-      }),
-    },
-  };
+      const data = apiError.parse(e.response.data);
+      if (e.response.status === 404) {
+        if (data.errors?.[0].code === "USER_NOT_FOUND") {
+          return redirect("/profile/edit");
+        }
+
+        throw e;
+      }
+
+      if (e.response.status === 401) {
+        if (data.errors?.[0].code === "EXPIRED_AUTH") {
+          return redirect("/profile");
+        }
+        if (
+          data.errors?.[0].code &&
+          ["INVALID_AUTHORIZATION", "UNAUTHORIZED"].includes(
+            data.errors?.[0].code
+          )
+        ) {
+          return redirect("/sign-in");
+        }
+
+        throw e;
+      }
+
+      throw e;
+    });
 };
 
 export default function Profile() {

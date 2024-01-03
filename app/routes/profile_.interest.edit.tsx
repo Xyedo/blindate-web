@@ -10,6 +10,7 @@ import {
   useLoaderData,
   useNavigation,
 } from "@remix-run/react";
+import axios from "axios";
 import { nanoid } from "nanoid";
 import { Fragment, useCallback, useState } from "react";
 import {
@@ -20,7 +21,7 @@ import {
   Text,
   FieldError,
 } from "react-aria-components";
-import { guard } from "~/api/api";
+import { apiError, guard } from "~/api/api";
 import { User, UserForm } from "~/api/user";
 
 export const action = async (
@@ -146,19 +147,51 @@ export const loader = async (
     return redirect("/sign-in");
   }
 
-  const userDetail = await User.getDetail(result.token, result.userId);
-  if (!userDetail) {
-    return redirect("/profile/edit");
-  }
+  return User.getDetail(result.token, result.userId)
+    .then((userDetail) => ({
+      interest: {
+        hobbies: userDetail.hobbies,
+        movie_series: userDetail.movie_series,
+        sports: userDetail.sports,
+        travels: userDetail.travels,
+      },
+    }))
+    .catch((e) => {
+      if (!axios.isAxiosError(e)) {
+        throw e;
+      }
 
-  return {
-    interest: {
-      hobbies: userDetail.hobbies ?? [],
-      movie_series: userDetail.movie_series ?? [],
-      sports: userDetail.sports ?? [],
-      travels: userDetail.travels ?? [],
-    },
-  };
+      if (!e.response) {
+        throw e;
+      }
+
+      const data = apiError.parse(e.response.data);
+      if (e.response.status === 404) {
+        if (data.errors?.[0].code === "USER_NOT_FOUND") {
+          return redirect("/profile/edit");
+        }
+
+        throw e;
+      }
+
+      if (e.response.status === 401) {
+        if (data.errors?.[0].code === "EXPIRED_AUTH") {
+          return redirect("/profile/interest/edit");
+        }
+        if (
+          data.errors?.[0].code &&
+          ["INVALID_AUTHORIZATION", "UNAUTHORIZED"].includes(
+            data.errors?.[0].code
+          )
+        ) {
+          return redirect("/sign-in");
+        }
+
+        throw e;
+      }
+
+      throw e;
+    });
 };
 export default function InterestEditPage() {
   const data = useLoaderData<typeof loader>();
