@@ -5,10 +5,9 @@ import type {
   TypedResponse,
 } from "@remix-run/node";
 import {
-  Form,
   useActionData,
+  useFetcher,
   useLoaderData,
-  useNavigation,
 } from "@remix-run/react";
 import axios from "axios";
 import { nanoid } from "nanoid";
@@ -112,7 +111,7 @@ export const action = async (
 
   const res = await guard(args);
   if (!res) {
-    return redirect("/sign-in");
+    throw redirect("/sign-in");
   }
 
   await User.editInterest(res.token, res.userId, {
@@ -144,7 +143,7 @@ export const loader = async (
 ): Promise<{ interest: User.Interest } | TypedResponse<never>> => {
   const result = await guard(args);
   if (!result) {
-    return redirect("/sign-in");
+    throw redirect("/sign-in");
   }
 
   return User.getDetail(result.token, result.userId)
@@ -157,37 +156,26 @@ export const loader = async (
       },
     }))
     .catch((e) => {
-      if (!axios.isAxiosError(e)) {
-        throw e;
-      }
-
-      if (!e.response) {
+      if (!axios.isAxiosError(e) || !e.response) {
         throw e;
       }
 
       const data = apiError.parse(e.response.data);
-      if (e.response.status === 404) {
-        if (data.errors?.[0].code === "USER_NOT_FOUND") {
-          return redirect("/profile/edit");
-        }
-
+      if (!data.errors) {
         throw e;
       }
 
-      if (e.response.status === 401) {
-        if (data.errors?.[0].code === "EXPIRED_AUTH") {
-          return redirect("/profile/interest/edit");
+      if (e.response.status === 404) {
+        if (data.errors[0].code === "USER_NOT_FOUND") {
+          throw redirect("/profile/edit");
         }
-        if (
-          data.errors?.[0].code &&
-          ["INVALID_AUTHORIZATION", "UNAUTHORIZED"].includes(
-            data.errors?.[0].code
-          )
-        ) {
-          return redirect("/sign-in");
-        }
+        
+      }
 
-        throw e;
+      if (e.response.status === 401) {
+        if (data.errors[0].code === "EXPIRED_AUTH") {
+          throw redirect("/profile/interest/edit");
+        }
       }
 
       throw e;
@@ -196,11 +184,11 @@ export const loader = async (
 export default function InterestEditPage() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const navigation = useNavigation();
-  const isSubmitting = navigation.state === "submitting";
+  const fetcher = useFetcher()
+  const isSubmitting = fetcher.state === "submitting";
 
   return (
-    <Form method="PUT" className="m-4">
+    <fetcher.Form method="PUT" className="m-4">
       <InterestEditItem
         initialItems={data.interest.hobbies}
         name="hobbies"
@@ -247,7 +235,7 @@ export default function InterestEditPage() {
         ) : null}
         Submit
       </Button>
-    </Form>
+    </fetcher.Form>
   );
 }
 

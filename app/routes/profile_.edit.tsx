@@ -32,26 +32,20 @@ import {
 import { apiError, guard } from "~/api/api";
 import { User, UserForm } from "~/api/user";
 import { useGeolocation } from "~/hook/useGeolocation";
-
+import type { User as ClerkUser } from "@clerk/remix/api.server";
 export const loader = async (
   args: DataFunctionArgs
-): Promise<
-  | TypedResponse<null>
-  | {
-      userDetail: User.Schema | undefined;
-      enums: {
-        gender: string[];
-        relationshipPrefrence: ReturnType<
-          typeof User.getEnumRelationshipPrefrence
-        >;
-        educationLevel: ReturnType<typeof User.getEnumEducationLevel>;
-        drinkingSmokeLevel: ReturnType<
-          typeof User.getEnumDrinnkingOrSmokeLevel
-        >;
-        zodiac: ReturnType<typeof User.getEnumZodiac>;
-      };
-    }
-> => {
+): Promise<{
+  userDetail: User.Schema | undefined;
+  user: ClerkUser | undefined;
+  enums: {
+    gender: string[];
+    relationshipPrefrence: ReturnType<typeof User.getEnumRelationshipPrefrence>;
+    educationLevel: ReturnType<typeof User.getEnumEducationLevel>;
+    drinkingSmokeLevel: ReturnType<typeof User.getEnumDrinnkingOrSmokeLevel>;
+    zodiac: ReturnType<typeof User.getEnumZodiac>;
+  };
+}> => {
   const gender = User.getEnumGender().map((v) =>
     User.translateGenderEnumToHuman(v)
   );
@@ -62,7 +56,7 @@ export const loader = async (
 
   const result = await guard(args);
   if (!result) {
-    return redirect("/sign-in");
+    throw redirect("/sign-in");
   }
 
   const enums = {
@@ -78,45 +72,35 @@ export const loader = async (
       return {
         userDetail,
         enums,
+        user: result.user,
       };
     })
     .catch((e) => {
-      if (!axios.isAxiosError(e)) {
-        throw e;
-      }
-
-      if (!e.response) {
+      if (!axios.isAxiosError(e) || !e.response) {
         throw e;
       }
 
       const data = apiError.parse(e.response.data);
+      if (!data.errors) {
+        throw e;
+      }
+
       if (e.response.status === 404) {
-        if (data.errors?.[0].code === "USER_NOT_FOUND") {
+        if (data.errors[0].code === "USER_NOT_FOUND") {
           return {
             userDetail: undefined,
+            user: result.user,
             enums,
           };
         }
-
-        throw e;
       }
 
       if (e.response.status === 401) {
-        if (data.errors?.[0].code === "EXPIRED_AUTH") {
-          return redirect("/profile/edit");
+        if (data.errors[0].code === "EXPIRED_AUTH") {
+          throw redirect("/profile/edit");
         }
-        if (
-          data.errors?.[0].code &&
-          ["INVALID_AUTHORIZATION", "UNAUTHORIZED"].includes(
-            data.errors?.[0].code
-          )
-        ) {
-          return redirect("/sign-in");
-        }
-
-        throw e;
       }
-      console.log(JSON.stringify(data, null, 2))
+
       throw e;
     });
 };
@@ -143,7 +127,7 @@ export const action = async (
 
   const result = await guard(args);
   if (!result) {
-    return redirect("/sign-in");
+    throw redirect("/sign-in");
   }
   const payload = {
     ...profileEdit.data,
@@ -168,10 +152,6 @@ export default function EditProfilePage() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
-
-  if (!result) {
-    return null;
-  }
 
   const { userDetail, enums } = result;
   const selectedPhoto = userDetail?.profile_picture_urls[0];
@@ -302,6 +282,7 @@ export default function EditProfilePage() {
             <Input className="input input-bordered w-full max-w-xs" />
             <EditProfileErrorField />
           </NumberField>
+
           <EditProfileTextField
             name="work"
             type="text"

@@ -25,8 +25,6 @@ export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
 ];
 
-
-
 export const loader: LoaderFunction = (args) => rootAuthLoader(args);
 export const ErrorBoundary = ClerkErrorBoundary(BlindateErrorBoundary);
 
@@ -63,7 +61,7 @@ function MobileNavigation() {
     return null;
   }
   return (
-    <div className="btm-nav sticky ">
+    <div className="btm-nav">
       <Form
         action="/"
         className={clsx(location.pathname === "/" ? "active" : undefined)}

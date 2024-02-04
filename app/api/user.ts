@@ -5,7 +5,7 @@ import z from "zod";
 import { api } from "~/api/api";
 
 export namespace User {
-  const detail = z.object({
+  export const detail = z.object({
     user_id: z.string(),
     alias: z.string(),
     geo: z.object({ lat: z.number(), lng: z.number() }),
@@ -108,7 +108,7 @@ export namespace User {
     looking_for: z.enum(getEnumGender()),
     zodiac: z.enum(getEnumZodiac()).optional(),
     kids: z.coerce.number().max(100).optional(),
-    work: z.coerce.number().min(0).max(50).optional(),
+    work: z.string().min(0).max(50).optional(),
   });
 
   type CreateDetailSchema = z.infer<typeof createDetailSchema>;
@@ -295,7 +295,7 @@ export namespace User {
       "Gemini",
       "Cancer",
       "Leo",
-      "virgo",
+      "Virgo",
       "Libra",
       "Scorpio",
       "Sagittarius",
