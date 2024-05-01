@@ -103,7 +103,7 @@ export function MatchCard(props: MatchCardProps) {
               method="PUT"
               className="flex justify-around items-center"
             >
-              <Input type="hidden" name="propsId" value={props.id} />
+              <Input type="hidden" name="matchId" value={props.id} />
               <Button
                 type="submit"
                 name="swipe"

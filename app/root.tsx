@@ -39,7 +39,7 @@ function App() {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="min-h-screen">
         <ThemeProvider>
           <>
             <Outlet />
@@ -61,7 +61,7 @@ function MobileNavigation() {
     return null;
   }
   return (
-    <div className="btm-nav">
+    <div className="btm-nav sticky">
       <Form
         action="/"
         className={clsx(location.pathname === "/" ? "active" : undefined)}

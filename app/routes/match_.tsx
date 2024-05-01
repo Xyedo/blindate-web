@@ -173,7 +173,7 @@ export const loader = async (
   if (accepted.status === "fulfilled") {
     res.accepted = accepted.value;
   }
-  console.log(res);
+
   return res;
 };
 
